@@ -1,13 +1,11 @@
 import { CheckCircle2 } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
-
 const stack = [
   "Next.js 16.4.0",
   "React 19.3.0",
   "TypeScript 7.0.2",
   "Tailwind CSS 4.3.3",
-  "shadcn/ui",
+  "shadcn/ui 4.21.1 · Base UI · Nova",
 ];
 
 export default function Home() {
@@ -23,8 +21,8 @@ export default function Home() {
               Project foundation is ready.
             </h1>
             <p className="max-w-2xl text-base leading-7 text-muted-foreground">
-              A clean App Router foundation with TypeScript, Tailwind CSS, and
-              shadcn/ui configured for the next implementation groups.
+              A clean App Router foundation with the current stable Next.js,
+              Tailwind CSS, TypeScript, and shadcn/ui stack.
             </p>
           </div>
 
@@ -39,8 +37,6 @@ export default function Home() {
               </div>
             ))}
           </div>
-
-          <Button type="button">Start building</Button>
         </section>
       </div>
     </main>

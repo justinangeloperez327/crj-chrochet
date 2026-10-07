@@ -1,6 +1,6 @@
 # CRJ Chrochet
 
-Clean Next.js application foundation using the current stable toolchain.
+Next.js application foundation initialized with the current stable stack.
 
 ## Stack
 
@@ -8,9 +8,11 @@ Clean Next.js application foundation using the current stable toolchain.
 - React 19.3.0
 - TypeScript 7.0.2
 - Tailwind CSS 4.3.3
-- shadcn CLI 4.21.1
+- shadcn 4.21.1
+- shadcn/ui Base UI + Nova preset
+- ESLint 10.10.0
 - App Router
-- ESLint 10
+- `src/` project layout
 
 ## Getting started
 
@@ -20,6 +22,8 @@ npm run dev
 ```
 
 Open `http://localhost:3000`.
+
+The first `npm install` will generate `package-lock.json`.
 
 ## Quality checks
 
@@ -31,8 +35,9 @@ npm run build
 
 ## shadcn/ui
 
-The project is initialized for shadcn/ui and includes the button component as the first registry component.
+The project is initialized with the current Base UI default and the `base-nova` style.
 
 ```bash
+npm run ui -- add button
 npm run ui -- add card
 ```
