@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Heart,
   Menu,
@@ -11,7 +11,11 @@ import {
 } from "lucide-react";
 
 import { CartDrawer } from "@/components/store/cart-drawer";
-import { useCartCount, useWishlistCount } from "@/lib/commerce-store";
+import {
+  syncWishlistFromAccount,
+  useCartCount,
+  useWishlistCount,
+} from "@/lib/commerce-store";
 
 const navigation = [
   { label: "Shop", href: "/shop" },
@@ -24,6 +28,10 @@ export function SiteHeader() {
   const cartCount = useCartCount();
   const wishlistCount = useWishlistCount();
   const [cartOpen, setCartOpen] = useState(false);
+
+  useEffect(() => {
+    void syncWishlistFromAccount();
+  }, []);
 
   return (
     <>
@@ -66,8 +74,8 @@ export function SiteHeader() {
               <Search className="size-[18px]" />
             </Link>
 
-            <button
-              type="button"
+            <Link
+              href="/account/wishlist"
               className="relative hidden size-9 items-center justify-center text-bloom-plum transition-colors hover:text-bloom-pink sm:flex"
               aria-label={`Wishlist with ${wishlistCount} items`}
             >
@@ -77,15 +85,15 @@ export function SiteHeader() {
                   {wishlistCount > 9 ? "9+" : wishlistCount}
                 </span>
               ) : null}
-            </button>
+            </Link>
 
-            <button
-              type="button"
+            <Link
+              href="/account"
               className="hidden size-9 items-center justify-center text-bloom-plum transition-colors hover:text-bloom-pink md:flex"
               aria-label="Account"
             >
               <UserRound className="size-[18px]" />
-            </button>
+            </Link>
 
             <button
               type="button"

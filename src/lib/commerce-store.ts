@@ -135,11 +135,42 @@ export function toggleWishlist(productId: string) {
     wishlist = [];
   }
 
-  const next = wishlist.includes(productId)
-    ? wishlist.filter((id) => id !== productId)
-    : [...wishlist, productId];
+  const wished = !wishlist.includes(productId);
+  const next = wished
+    ? [...wishlist, productId]
+    : wishlist.filter((id) => id !== productId);
 
   writeRaw(WISHLIST_KEY, JSON.stringify(next));
+
+  void fetch("/api/wishlist", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      productSlug: productId,
+      wished,
+    }),
+  }).catch(() => undefined);
+}
+
+export async function syncWishlistFromAccount() {
+  try {
+    const response = await fetch("/api/wishlist", {
+      method: "GET",
+      cache: "no-store",
+    });
+
+    if (!response.ok) return;
+
+    const payload = (await response.json()) as {
+      productSlugs?: string[];
+    };
+
+    if (Array.isArray(payload.productSlugs)) {
+      writeRaw(WISHLIST_KEY, JSON.stringify(payload.productSlugs));
+    }
+  } catch {
+    // Guest/local wishlist remains available when account sync is unavailable.
+  }
 }
 
 export function setOrderPreferences(preferences: OrderPreferences) {

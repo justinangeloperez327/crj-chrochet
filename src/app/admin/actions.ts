@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
+import { requireAdmin } from "@/lib/auth/guards";
 import { requireDb } from "@/lib/db";
 
 const PRODUCT_STATUSES = ["DRAFT", "ACTIVE", "ARCHIVED"] as const;
@@ -26,6 +27,7 @@ const PAYMENT_STATUSES = [
 ] as const;
 
 export async function createProduct(formData: FormData) {
+  await requireAdmin();
   const db = requireDb();
   const name = required(formData, "name");
   const slug = slugify(optional(formData, "slug") || name);
@@ -67,6 +69,7 @@ export async function createProduct(formData: FormData) {
 }
 
 export async function updateProduct(formData: FormData) {
+  await requireAdmin();
   const db = requireDb();
   const id = required(formData, "id");
   const status = enumValue(
@@ -97,6 +100,7 @@ export async function updateProduct(formData: FormData) {
 }
 
 export async function archiveProduct(formData: FormData) {
+  await requireAdmin();
   const db = requireDb();
   const id = required(formData, "id");
 
@@ -111,6 +115,7 @@ export async function archiveProduct(formData: FormData) {
 }
 
 export async function createVariant(formData: FormData) {
+  await requireAdmin();
   const db = requireDb();
   const productId = required(formData, "productId");
   const sku = required(formData, "sku").toUpperCase();
@@ -167,6 +172,7 @@ export async function createVariant(formData: FormData) {
 }
 
 export async function updateVariant(formData: FormData) {
+  await requireAdmin();
   const db = requireDb();
   const id = required(formData, "id");
   const productId = required(formData, "productId");
@@ -202,6 +208,7 @@ export async function updateVariant(formData: FormData) {
 }
 
 export async function adjustStock(formData: FormData) {
+  await requireAdmin();
   const db = requireDb();
   const variantId = required(formData, "variantId");
   const delta = integer(formData, "delta");
@@ -251,6 +258,7 @@ export async function adjustStock(formData: FormData) {
 }
 
 export async function updateOrderWorkflow(formData: FormData) {
+  await requireAdmin();
   const db = requireDb();
   const orderId = required(formData, "orderId");
   const requestedStatus = enumValue(

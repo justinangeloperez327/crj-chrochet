@@ -3,6 +3,7 @@ import "dotenv/config";
 import { PrismaPg } from "@prisma/adapter-pg";
 
 import { PrismaClient } from "../src/generated/prisma/client";
+import { hashPassword } from "../src/lib/auth/password";
 
 const connectionString = process.env.DATABASE_URL;
 
@@ -295,6 +296,33 @@ async function main() {
     },
   });
 
+  const adminEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase();
+  const adminPassword = process.env.ADMIN_PASSWORD;
+  const adminName = process.env.ADMIN_NAME?.trim() || "CRJ Administrator";
+
+  if (adminEmail && adminPassword) {
+    if (adminPassword.length < 12) {
+      throw new Error("ADMIN_PASSWORD must contain at least 12 characters.");
+    }
+
+    const passwordHash = await hashPassword(adminPassword);
+
+    await prisma.user.upsert({
+      where: { email: adminEmail },
+      update: {
+        name: adminName,
+        passwordHash,
+        role: "ADMIN",
+      },
+      create: {
+        email: adminEmail,
+        name: adminName,
+        passwordHash,
+        role: "ADMIN",
+      },
+    });
+  }
+
   const demoCustomer = await prisma.customer.upsert({
     where: { email: "demo.customer@example.com" },
     update: {
@@ -332,7 +360,7 @@ async function main() {
   });
 
   console.log(
-    `Seeded ${seedProducts.length} products, collections, inventory, discount, and demo customer.`,
+    `Seeded ${seedProducts.length} products, collections, inventory, discount, demo customer${adminEmail && adminPassword ? ", and admin account" : ""}.`,
   );
 }
 

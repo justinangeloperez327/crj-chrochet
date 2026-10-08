@@ -2,22 +2,35 @@
 
 The admin area is available under `/admin`.
 
-## Access protection
+## Authentication and authorization
 
-Next.js 16 uses the `proxy.ts` convention for request-time route protection.
+Group 7 replaces the temporary HTTP Basic Authentication gate with database-backed users and sessions.
 
-The current operational gate uses HTTP Basic Authentication backed by:
+A bootstrap administrator can be created or updated by the Prisma seed using:
 
 ```env
-ADMIN_USERNAME="admin"
-ADMIN_PASSWORD="use-a-long-random-password"
+ADMIN_EMAIL="admin@example.com"
+ADMIN_PASSWORD="use-a-long-unique-password"
+ADMIN_NAME="CRJ Administrator"
 ```
 
-This prevents anonymous access to the admin and its Server Action mutations.
+Then run:
 
-This is an interim operational control. A later authentication group should replace it with a proper administrator identity/session system, password hashing, authorization roles, audit identity, and optional MFA.
+```bash
+npm run db:seed
+```
 
-If the admin credentials are not configured, `/admin` returns HTTP 503 rather than exposing the interface.
+The admin signs in through the same `/login` page used by customers. An administrator is redirected to `/admin` after normal sign-in when no other destination was requested.
+
+Next.js `proxy.ts` performs an early session-cookie redirect for `/admin` and `/account`. It is not the authorization boundary.
+
+Actual authorization is enforced server-side:
+
+- the admin layout requires an authenticated `ADMIN` role;
+- every admin Server Action independently calls the admin guard;
+- invalid, expired, or non-admin sessions cannot authorize product, inventory, or order mutations.
+
+Passwords are stored as scrypt password hashes with per-password random salts. Session cookies contain opaque random tokens; only SHA-256 token hashes are stored in PostgreSQL.
 
 ## Dashboard
 
@@ -44,20 +57,7 @@ Products use lifecycle states:
 
 Products are archived rather than hard deleted so historical order relationships remain valid.
 
-Each product can have multiple sellable SKU variants. Variant configuration includes:
-
-- SKU
-- name
-- color and hex value
-- size
-- stem count
-- selling price
-- cost
-- fulfillment mode
-- lead time
-- reorder level
-- active/inactive state
-- inventory tracking
+Each product can have multiple sellable SKU variants. Variant configuration includes SKU, color, size, stem count, price, cost, fulfillment mode, lead time, reorder level, active state, and inventory tracking.
 
 Creating a variant with opening stock writes an `OPENING` inventory movement.
 
@@ -65,34 +65,22 @@ Creating a variant with opening stock writes an `OPENING` inventory movement.
 
 `/admin/inventory`
 
-Inventory exposes:
+Inventory exposes stock on hand, reserved stock, available stock, reorder state, and recent inventory movements.
 
-- stock on hand
-- reserved stock
-- available stock
-- reorder level / low-stock state
-- recent inventory movements
-
-Manual stock changes are implemented as delta adjustments, not direct stock replacement.
-
-For example:
+Manual changes are delta adjustments:
 
 ```text
 +5 = receive/correct five additional units
 -2 = remove two units after a physical count
 ```
 
-A manual reduction is rejected when it would make stock on hand negative or lower than already-reserved stock.
-
-Every adjustment writes an `ADJUSTMENT` movement.
+A reduction is rejected when it would make stock negative or lower than already-reserved stock. Every adjustment writes an `ADJUSTMENT` movement.
 
 ## Order workflow
 
 `/admin/orders`
 
 Order, payment, and fulfillment states remain separate.
-
-The operational order path is:
 
 ```text
 Pending Payment
@@ -110,42 +98,23 @@ Fulfilled
 
 Cancellation is also available.
 
-### Payment
+Payment status can currently be updated manually by an authenticated administrator. This supports manual/offline reconciliation until a payment provider is connected.
 
-Payment status can currently be updated manually by an authenticated administrator. This supports manual/offline payment reconciliation until a payment provider is connected.
+The system will not allow fulfillment unless payment is `PAID`.
 
-The system will not allow an order to be fulfilled unless payment status is `PAID`.
+Cancelling an order releases outstanding ready-stock reservations and writes `RELEASE` inventory movements. Fulfillment consumes outstanding reservations, decreases physical stock, and writes `SALE` movements.
 
-### Stock on cancellation
-
-Cancelling an order releases outstanding ready-stock reservations:
-
-- `stockReserved` is reduced
-- a `RELEASE` movement is written
-
-Cancelled orders cannot be reopened.
-
-### Stock on fulfillment
-
-When a paid order is marked fulfilled:
-
-- outstanding ready-stock reservations are consumed
-- `stockOnHand` decreases
-- `stockReserved` decreases
-- a `SALE` movement is written
-
-Fulfilled orders cannot be moved backwards.
-
-Made-to-order quantities that did not reserve finished stock are not automatically deducted from finished-goods inventory. Production completion/assembly inventory can be added later when raw-material/BOM tracking is implemented.
+Cancelled orders cannot be reopened. Fulfilled orders cannot be moved backward.
 
 ## Database requirement
 
-Unlike the public storefront, the admin does not operate from static fallback data.
+The admin requires PostgreSQL. Unlike the public storefront, it does not operate from static fallback data.
 
-It requires:
+Required setup:
 
-1. `DATABASE_URL`
-2. the Prisma migration to be applied
-3. seed data or manually created records
+1. configure `DATABASE_URL`;
+2. generate/apply the Prisma migration;
+3. configure the admin bootstrap variables;
+4. run `npm run db:seed`.
 
-Without PostgreSQL, the admin displays database setup instructions instead of mock operational data.
+Without PostgreSQL, operational admin data is unavailable.
