@@ -290,6 +290,8 @@ export async function updateOrderWorkflow(formData: FormData) {
       throw new Error("Fulfilled orders cannot be moved backwards.");
     }
 
+    const becomingPaid =
+      paymentStatus === "PAID" && order.paymentStatus !== "PAID";
     let status = requestedStatus;
 
     if (paymentStatus === "PAID" && status === "PENDING_PAYMENT") {
@@ -366,14 +368,43 @@ export async function updateOrderWorkflow(formData: FormData) {
       }
     }
 
+    const paidAt = becomingPaid ? new Date() : order.paidAt;
+
     await tx.order.update({
       where: { id: orderId },
       data: {
         status,
         paymentStatus,
         fulfillmentStatus: fulfillmentStatusFor(status),
+        paidAt,
+        reservationExpiresAt: becomingPaid
+          ? null
+          : order.reservationExpiresAt,
       },
     });
+
+    if (becomingPaid && order.discountId) {
+      await tx.discount.update({
+        where: { id: order.discountId },
+        data: { redemptionCount: { increment: 1 } },
+      });
+    }
+
+    if (becomingPaid) {
+      await tx.notificationOutbox.create({
+        data: {
+          orderId: order.id,
+          toEmail: order.customerEmail,
+          type: "ORDER_CONFIRMED",
+          subject: `Order ${order.orderNumber} confirmed`,
+          payload: {
+            orderNumber: order.orderNumber,
+            total: Number(order.total),
+            currency: order.currency,
+          },
+        },
+      });
+    }
   });
 
   revalidatePath(`/admin/orders/${orderId}`);

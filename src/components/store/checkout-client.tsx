@@ -3,7 +3,6 @@
 import Link from "next/link";
 import {
   ArrowLeft,
-  ArrowRight,
   Check,
   Gift,
   LockKeyhole,
@@ -13,7 +12,6 @@ import { useState, type FormEvent } from "react";
 
 import { BloomArtwork } from "@/components/store/bloom-art";
 import {
-  clearCart,
   useCart,
   useCartSubtotal,
   useOrderPreferences,
@@ -22,16 +20,11 @@ import { products } from "@/lib/catalog";
 
 type CheckoutStep = "information" | "delivery" | "payment";
 
-type CreatedOrder = {
-  orderNumber: string;
-  total: number;
-  currency: string;
-  status: string;
-  paymentStatus: string;
-  discountAmount: number;
-};
-
-export function CheckoutClient() {
+export function CheckoutClient({
+  cancelled = false,
+}: {
+  cancelled?: boolean;
+}) {
   const cart = useCart();
   const clientSubtotal = useCartSubtotal();
   const preferences = useOrderPreferences();
@@ -51,20 +44,53 @@ export function CheckoutClient() {
   const [discountAmount, setDiscountAmount] = useState(0);
   const [discountError, setDiscountError] = useState("");
   const [discountLoading, setDiscountLoading] = useState(false);
+  const [deliveryAmount, setDeliveryAmount] = useState(0);
+  const [deliveryError, setDeliveryError] = useState("");
+  const [deliveryLoading, setDeliveryLoading] = useState(false);
   const [orderError, setOrderError] = useState("");
   const [orderLoading, setOrderLoading] = useState(false);
-  const [createdOrder, setCreatedOrder] = useState<CreatedOrder | null>(null);
 
-  const currentTotal = Math.max(0, clientSubtotal - discountAmount);
+  const currentTotal = Math.max(
+    0,
+    clientSubtotal - discountAmount + deliveryAmount,
+  );
 
   function handleInformation(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setStep("delivery");
   }
 
-  function handleDelivery(event: FormEvent<HTMLFormElement>) {
+  async function handleDelivery(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setStep("payment");
+    setDeliveryLoading(true);
+    setDeliveryError("");
+
+    try {
+      const response = await fetch("/api/delivery/quote", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ emirate: delivery.emirate }),
+      });
+      const payload = (await response.json()) as {
+        quote?: { amount: number };
+        error?: string;
+      };
+
+      if (!response.ok || !payload.quote) {
+        throw new Error(payload.error || "Unable to calculate delivery.");
+      }
+
+      setDeliveryAmount(payload.quote.amount);
+      setStep("payment");
+    } catch (error) {
+      setDeliveryError(
+        error instanceof Error
+          ? error.message
+          : "Unable to calculate delivery.",
+      );
+    } finally {
+      setDeliveryLoading(false);
+    }
   }
 
   async function applyDiscount() {
@@ -121,7 +147,7 @@ export function CheckoutClient() {
     setOrderError("");
 
     try {
-      const response = await fetch("/api/orders", {
+      const response = await fetch("/api/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -136,16 +162,15 @@ export function CheckoutClient() {
       });
 
       const payload = (await response.json()) as {
-        order?: CreatedOrder;
+        checkoutUrl?: string;
         error?: string;
       };
 
-      if (!response.ok || !payload.order) {
-        throw new Error(payload.error || "The order could not be created.");
+      if (!response.ok || !payload.checkoutUrl) {
+        throw new Error(payload.error || "Payment could not be started.");
       }
 
-      setCreatedOrder(payload.order);
-      clearCart();
+      window.location.assign(payload.checkoutUrl);
     } catch (error) {
       setOrderError(
         error instanceof Error
@@ -155,63 +180,6 @@ export function CheckoutClient() {
     } finally {
       setOrderLoading(false);
     }
-  }
-
-  if (createdOrder) {
-    return (
-      <div className="min-h-screen bg-background">
-        <CheckoutHeader />
-        <main className="mx-auto flex min-h-[calc(100vh-4.5rem)] max-w-2xl flex-col items-center justify-center px-5 py-14 text-center sm:px-8">
-          <div className="flex size-14 items-center justify-center rounded-full bg-bloom-pink-soft text-bloom-pink">
-            <Check className="size-5" />
-          </div>
-          <p className="mt-6 text-[11px] font-semibold tracking-[0.18em] text-bloom-violet uppercase">
-            Order saved
-          </p>
-          <h1 className="mt-3 font-display text-4xl font-semibold tracking-[-0.045em] text-bloom-plum sm:text-5xl">
-            Your blooms are reserved.
-          </h1>
-          <p className="mt-4 max-w-lg text-sm leading-6 text-bloom-muted">
-            Order <span className="font-semibold text-bloom-plum">{createdOrder.orderNumber}</span>{" "}
-            has been created as pending payment. No payment has been collected.
-          </p>
-
-          <div className="mt-8 w-full border border-bloom-border bg-white p-6 text-left">
-            <div className="flex items-center justify-between gap-4 border-b border-bloom-border pb-4">
-              <span className="text-sm text-bloom-muted">Order number</span>
-              <span className="text-sm font-semibold text-bloom-plum">
-                {createdOrder.orderNumber}
-              </span>
-            </div>
-            <div className="flex items-center justify-between gap-4 border-b border-bloom-border py-4">
-              <span className="text-sm text-bloom-muted">Payment status</span>
-              <span className="text-xs font-semibold text-bloom-violet">
-                Pending payment
-              </span>
-            </div>
-            <div className="flex items-center justify-between gap-4 pt-4">
-              <span className="text-sm font-semibold text-bloom-plum">Total</span>
-              <span className="text-xl font-semibold text-bloom-plum">
-                {createdOrder.currency} {createdOrder.total}
-              </span>
-            </div>
-          </div>
-
-          <p className="mt-5 max-w-lg text-xs leading-5 text-bloom-muted">
-            Payment processing will be connected in a later implementation group.
-            Until then, this order remains pending and no card or bank details are collected.
-          </p>
-
-          <Link
-            href="/shop"
-            className="mt-7 inline-flex h-12 items-center gap-2 bg-bloom-plum px-6 text-sm font-semibold text-white"
-          >
-            Continue shopping
-            <ArrowRight className="size-4" />
-          </Link>
-        </main>
-      </div>
-    );
   }
 
   if (cart.length === 0) {
@@ -237,6 +205,12 @@ export function CheckoutClient() {
   return (
     <div className="min-h-screen bg-background">
       <CheckoutHeader />
+
+      {cancelled ? (
+        <div className="border-b border-amber-200 bg-amber-50 px-5 py-3 text-center text-xs text-amber-800">
+          Payment was cancelled. Your basket is still here and the previous stock reservation was released.
+        </div>
+      ) : null}
 
       <main className="mx-auto grid max-w-[1240px] gap-10 px-5 py-8 sm:px-8 lg:grid-cols-[1fr_430px] lg:gap-16 lg:py-12">
         <div>
@@ -359,12 +333,14 @@ export function CheckoutClient() {
                   <select
                     required
                     value={delivery.emirate}
-                    onChange={(event) =>
+                    onChange={(event) => {
+                      setDeliveryAmount(0);
+                      setDeliveryError("");
                       setDelivery((current) => ({
                         ...current,
                         emirate: event.target.value,
-                      }))
-                    }
+                      }));
+                    }}
                     className="mt-2 h-12 w-full border border-bloom-border bg-white px-3 text-sm text-bloom-plum outline-none focus:border-bloom-violet"
                   >
                     <option value="">Select emirate</option>
@@ -384,8 +360,13 @@ export function CheckoutClient() {
                   Delivery charge
                 </p>
                 <p className="mt-1 text-xs leading-5 text-bloom-muted">
-                  Delivery pricing remains AED 0 until delivery-zone rules are implemented.
+                  {deliveryAmount > 0
+                    ? `AED ${deliveryAmount} for ${delivery.emirate}`
+                    : "Your configured delivery rate will be calculated before payment."}
                 </p>
+                {deliveryError ? (
+                  <p className="mt-2 text-[11px] text-red-600">{deliveryError}</p>
+                ) : null}
               </div>
 
               <div className="mt-7 flex flex-wrap gap-3">
@@ -398,9 +379,10 @@ export function CheckoutClient() {
                 </button>
                 <button
                   type="submit"
-                  className="h-12 bg-bloom-plum px-7 text-sm font-semibold text-white"
+                  disabled={deliveryLoading}
+                  className="h-12 bg-bloom-plum px-7 text-sm font-semibold text-white disabled:opacity-60"
                 >
-                  Continue to order
+                  {deliveryLoading ? "Calculating…" : "Continue to payment"}
                 </button>
               </div>
             </form>
@@ -412,7 +394,7 @@ export function CheckoutClient() {
                 Step 3
               </p>
               <h1 className="mt-2 font-display text-4xl font-semibold tracking-[-0.04em] text-bloom-plum">
-                Review & create order
+                Review & pay
               </h1>
 
               <div className="mt-7 border border-bloom-violet/20 bg-bloom-violet-soft/35 p-6">
@@ -420,12 +402,12 @@ export function CheckoutClient() {
                   <LockKeyhole className="size-4" />
                 </div>
                 <p className="mt-4 text-sm font-semibold text-bloom-plum">
-                  Payment collection is not enabled yet.
+                  Secure payment with Stripe Checkout.
                 </p>
                 <p className="mt-2 text-xs leading-5 text-bloom-muted">
-                  Creating the order will validate current database pricing and stock,
-                  save the customer and delivery address, and reserve available
-                  ready-stock items. The order will remain pending payment.
+                  We’ll validate pricing and stock, reserve your ready-stock items,
+                  then redirect you to Stripe’s hosted checkout. Your order is only
+                  marked paid after a verified Stripe webhook confirms payment.
                 </p>
               </div>
 
@@ -449,7 +431,7 @@ export function CheckoutClient() {
                   onClick={createOrder}
                   className="h-12 bg-bloom-plum px-7 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  {orderLoading ? "Creating order…" : "Create pending order"}
+                  {orderLoading ? "Starting secure checkout…" : "Pay securely"}
                 </button>
               </div>
             </section>
@@ -573,7 +555,7 @@ export function CheckoutClient() {
               <div className="flex justify-between gap-4">
                 <span className="text-bloom-muted">Delivery</span>
                 <span className="text-right text-xs font-medium text-bloom-plum">
-                  AED 0
+                  AED {deliveryAmount}
                 </span>
               </div>
               <div className="flex justify-between border-t border-bloom-border pt-4">
@@ -587,7 +569,7 @@ export function CheckoutClient() {
             </div>
 
             <p className="mt-4 text-[10px] leading-4 text-bloom-muted">
-              Final totals are recalculated from the database when the order is created.
+              Final product, discount, delivery, and payment totals are recalculated on the server before Stripe Checkout starts.
             </p>
           </div>
         </aside>
@@ -644,7 +626,7 @@ function CheckoutProgress({ step }: { step: CheckoutStep }) {
                   : "text-bloom-muted")
               }
             >
-              {item === "payment" ? "order" : item}
+              {item}
             </span>
           </div>
           {index < steps.length - 1 ? (

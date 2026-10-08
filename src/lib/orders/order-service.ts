@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 
 import type { Prisma } from "@/generated/prisma/client";
+import { getDeliveryRate } from "@/lib/delivery/delivery-service";
 import { requireDb } from "@/lib/db";
 
 export type CheckoutLineInput = {
@@ -167,11 +168,21 @@ export async function createPendingOrder(input: CreateOrderInput) {
       }
 
       const discountAmount = discount.amount;
-      const deliveryAmount = 0;
+      let deliveryAmount: number;
+
+      try {
+        deliveryAmount = getDeliveryRate(emirate);
+      } catch {
+        throw new OrderCreationError(
+          "Delivery is not configured for the selected emirate.",
+        );
+      }
+
       const total = roundMoney(
         subtotal - discountAmount + deliveryAmount,
       );
       const orderNumber = createOrderNumber();
+      const reservationExpiresAt = new Date(Date.now() + 45 * 60 * 1000);
 
       const order = await tx.order.create({
         data: {
@@ -193,6 +204,7 @@ export async function createPendingOrder(input: CreateOrderInput) {
             ? input.giftMessage?.trim() || null
             : null,
           orderNote: input.orderNote?.trim() || null,
+          reservationExpiresAt,
           shippingAddress: {
             create: {
               recipient,
@@ -224,6 +236,8 @@ export async function createPendingOrder(input: CreateOrderInput) {
           currency: true,
           status: true,
           paymentStatus: true,
+          deliveryAmount: true,
+          reservationExpiresAt: true,
         },
       });
 
@@ -262,12 +276,15 @@ export async function createPendingOrder(input: CreateOrderInput) {
       }
 
       return {
+        id: order.id,
         orderNumber: order.orderNumber,
         total: Number(order.total),
         currency: order.currency,
         status: order.status,
         paymentStatus: order.paymentStatus,
         discountAmount,
+        deliveryAmount: Number(order.deliveryAmount),
+        reservationExpiresAt: order.reservationExpiresAt,
       };
     },
     {

@@ -69,6 +69,31 @@ enum UserRole {
   ADMIN
 }
 
+enum PaymentProvider {
+  STRIPE
+}
+
+enum PaymentAttemptStatus {
+  CREATED
+  PENDING
+  PAID
+  FAILED
+  EXPIRED
+  REFUNDED
+}
+
+enum NotificationStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
+enum NotificationType {
+  ORDER_CONFIRMED
+  PAYMENT_FAILED
+  ORDER_CANCELLED
+}
+
 model Category {
   id          String    @id @default(cuid())
   name        String
@@ -283,11 +308,15 @@ model Order {
   isGift            Boolean           @default(false)
   giftMessage       String?
   orderNote         String?
+  reservationExpiresAt DateTime?
+  paidAt            DateTime?
   customer          Customer?         @relation(fields: [customerId], references: [id], onDelete: SetNull)
   discount          Discount?         @relation(fields: [discountId], references: [id], onDelete: SetNull)
   shippingAddress   OrderAddress?
   items             OrderItem[]
   inventoryMovement InventoryMovement[]
+  paymentAttempts  PaymentAttempt[]
+  notifications    NotificationOutbox[]
   createdAt         DateTime          @default(now())
   updatedAt         DateTime          @updatedAt
 
@@ -295,6 +324,53 @@ model Order {
   @@index([status, createdAt])
   @@index([paymentStatus])
   @@index([fulfillmentStatus])
+  @@index([reservationExpiresAt])
+}
+
+model PaymentAttempt {
+  id          String               @id @default(cuid())
+  orderId     String
+  provider    PaymentProvider
+  externalId  String               @unique
+  status      PaymentAttemptStatus @default(CREATED)
+  amount      Decimal              @db.Decimal(10, 2)
+  currency    String               @default("AED")
+  checkoutUrl String?
+  expiresAt   DateTime?
+  paidAt      DateTime?
+  order       Order                @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+
+  @@index([orderId, status])
+}
+
+model PaymentWebhookEvent {
+  id          String          @id
+  provider    PaymentProvider
+  type        String
+  processedAt DateTime        @default(now())
+
+  @@index([provider, processedAt])
+}
+
+model NotificationOutbox {
+  id        String             @id @default(cuid())
+  orderId   String?
+  toEmail   String
+  type      NotificationType
+  subject   String
+  payload   Json
+  status    NotificationStatus @default(PENDING)
+  attempts  Int                @default(0)
+  lastError String?
+  sentAt    DateTime?
+  order     Order?             @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
+
+  @@index([status, createdAt])
+  @@index([orderId])
 }
 
 model OrderAddress {

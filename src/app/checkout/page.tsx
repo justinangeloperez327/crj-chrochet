@@ -7,6 +7,13 @@ export const metadata: Metadata = {
   description: "Checkout for Handmade Blooms by CRJ.",
 };
 
-export default function CheckoutPage() {
-  return <CheckoutClient />;
+type CheckoutPageProps = {
+  searchParams: Promise<{ cancelled?: string }>;
+};
+
+export default async function CheckoutPage({
+  searchParams,
+}: CheckoutPageProps) {
+  const params = await searchParams;
+  return <CheckoutClient cancelled={params.cancelled === "1"} />;
 }
