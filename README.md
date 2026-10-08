@@ -41,3 +41,16 @@ The project is initialized with the current Base UI default and the `base-nova` 
 npm run ui -- add button
 npm run ui -- add card
 ```
+
+
+## Database
+
+The persistence layer uses PostgreSQL + Prisma ORM 7. See [docs/database.md](docs/database.md) for the schema, setup, migration, seeding, and deployment workflow.
+
+```bash
+cp .env.example .env
+npm install
+npm run db:generate
+npm run db:migrate -- --name initial-commerce-schema
+npm run db:seed
+```
