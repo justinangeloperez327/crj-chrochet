@@ -8,21 +8,25 @@ import { ProductCard } from "@/components/store/product-card";
 import { ProductPurchasePanel } from "@/components/store/product-purchase-panel";
 import { SiteFooter } from "@/components/store/site-footer";
 import { SiteHeader } from "@/components/store/site-header";
-import { getProductBySlug, products } from "@/lib/catalog";
+import { products as fallbackProducts } from "@/lib/catalog";
+import {
+  loadStorefrontProductBySlug,
+  loadStorefrontProducts,
+} from "@/lib/data/storefront-catalog";
 
 type ProductPageProps = {
   params: Promise<{ slug: string }>;
 };
 
 export function generateStaticParams() {
-  return products.map((product) => ({ slug: product.slug }));
+  return fallbackProducts.map((product) => ({ slug: product.slug }));
 }
 
 export async function generateMetadata({
   params,
 }: ProductPageProps): Promise<Metadata> {
   const { slug } = await params;
-  const product = getProductBySlug(slug);
+  const product = await loadStorefrontProductBySlug(slug);
 
   if (!product) return {};
 
@@ -34,10 +38,11 @@ export async function generateMetadata({
 
 export default async function ProductPage({ params }: ProductPageProps) {
   const { slug } = await params;
-  const product = getProductBySlug(slug);
+  const product = await loadStorefrontProductBySlug(slug);
 
   if (!product) notFound();
 
+  const products = await loadStorefrontProducts();
   const related = products
     .filter(
       (item) =>

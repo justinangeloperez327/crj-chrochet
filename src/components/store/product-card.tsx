@@ -10,19 +10,45 @@ import {
   toggleWishlist,
   useIsWishlisted,
 } from "@/lib/commerce-store";
-import type { ProductPreview } from "@/lib/catalog";
+import type { Product } from "@/lib/catalog";
 
-export function ProductCard({ product }: { product: ProductPreview }) {
+export function ProductCard({ product }: { product: Product }) {
   const wishlisted = useIsWishlisted(product.id);
   const [added, setAdded] = useState(false);
 
+  const quickAddUnavailable =
+    product.defaultVariant?.fulfillmentMode === "READY_STOCK" &&
+    product.defaultVariant.available === 0;
+
   function handleQuickAdd() {
+    if (quickAddUnavailable) return;
+
+    const defaultSize =
+      product.sizes.find((size) => size.price === product.price) ??
+      product.sizes[0];
+    const defaultColor = product.colors[0];
+    const defaultVariant =
+      product.defaultVariant ??
+      product.variants?.find(
+        (variant) =>
+          variant.colorName === defaultColor?.name &&
+          variant.stems === defaultSize?.stems,
+      );
+
     addToCart({
       productId: product.id,
+      productSlug: product.slug,
+      variantSku: defaultVariant?.sku,
+      colorName: defaultVariant?.colorName ?? defaultColor?.name,
+      sizeName: defaultVariant?.sizeName ?? defaultSize?.name,
+      stems: defaultVariant?.stems ?? defaultSize?.stems,
       name: product.name,
       quantity: 1,
-      unitPrice: product.price,
-      variant: product.variant,
+      unitPrice: defaultVariant?.price ?? product.price,
+      variant:
+        defaultVariant
+          ? `${defaultVariant.colorName} · ${defaultVariant.sizeName} · ${defaultVariant.stems} stems`
+          : product.variant,
     });
     setAdded(true);
     window.setTimeout(() => setAdded(false), 1400);
@@ -52,7 +78,11 @@ export function ProductCard({ product }: { product: ProductPreview }) {
         <button
           type="button"
           onClick={() => toggleWishlist(product.id)}
-          aria-label={wishlisted ? `Remove ${product.name} from wishlist` : `Add ${product.name} to wishlist`}
+          aria-label={
+            wishlisted
+              ? `Remove ${product.name} from wishlist`
+              : `Add ${product.name} to wishlist`
+          }
           className={
             "absolute right-3 top-3 z-10 flex size-8 items-center justify-center bg-white/90 backdrop-blur transition-colors " +
             (wishlisted
@@ -66,10 +96,15 @@ export function ProductCard({ product }: { product: ProductPreview }) {
         <button
           type="button"
           onClick={handleQuickAdd}
-          className="absolute inset-x-3 bottom-3 z-10 flex translate-y-2 items-center justify-center gap-2 bg-bloom-plum px-4 py-3 text-xs font-semibold tracking-[0.04em] text-white opacity-0 transition-all duration-200 group-hover:translate-y-0 group-hover:opacity-100 focus:translate-y-0 focus:opacity-100"
+          disabled={quickAddUnavailable}
+          className="absolute inset-x-3 bottom-3 z-10 flex translate-y-2 items-center justify-center gap-2 bg-bloom-plum px-4 py-3 text-xs font-semibold tracking-[0.04em] text-white opacity-0 transition-all duration-200 group-hover:translate-y-0 group-hover:opacity-100 focus:translate-y-0 focus:opacity-100 disabled:cursor-not-allowed disabled:bg-bloom-muted/70"
         >
-          {added ? <Check className="size-3.5" /> : <ShoppingBag className="size-3.5" />}
-          {added ? "Added" : "Quick add"}
+          {added ? (
+            <Check className="size-3.5" />
+          ) : (
+            <ShoppingBag className="size-3.5" />
+          )}
+          {quickAddUnavailable ? "Out of stock" : added ? "Added" : "Quick add"}
         </button>
       </div>
 
@@ -93,7 +128,9 @@ export function ProductCard({ product }: { product: ProductPreview }) {
             "mt-2 text-[11px] font-medium " +
             (product.availability === "Ready to ship"
               ? "text-bloom-success"
-              : "text-bloom-violet")
+              : product.availability === "Out of stock"
+                ? "text-red-600"
+                : "text-bloom-violet")
           }
         >
           {product.availability}

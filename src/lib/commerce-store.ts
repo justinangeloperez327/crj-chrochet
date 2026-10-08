@@ -10,6 +10,11 @@ export const CART_OPEN_EVENT = "crj-blooms-cart-open";
 
 export type CartLine = {
   productId: string;
+  productSlug?: string;
+  variantSku?: string;
+  colorName?: string;
+  sizeName?: string;
+  stems?: number;
   name: string;
   quantity: number;
   unitPrice: number;
@@ -64,17 +69,23 @@ export function openCart() {
 
 export function addToCart(line: CartLine, options?: { open?: boolean }) {
   const cart = readCart();
-  const existingIndex = cart.findIndex(
-    (item) =>
+  const existingIndex = cart.findIndex((item) => {
+    if (line.variantSku && item.variantSku) {
+      return item.variantSku === line.variantSku;
+    }
+
+    return (
       item.productId === line.productId &&
       item.variant === line.variant &&
-      item.unitPrice === line.unitPrice,
-  );
+      item.unitPrice === line.unitPrice
+    );
+  });
 
   if (existingIndex >= 0) {
     const existing = cart[existingIndex];
     cart[existingIndex] = {
       ...existing,
+      ...line,
       quantity: Math.min(99, existing.quantity + line.quantity),
     };
   } else {

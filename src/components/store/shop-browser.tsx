@@ -73,7 +73,7 @@ export function ShopBrowser({
 
       <FilterSection title="Availability">
         <div className="space-y-3">
-          {(["All", "Ready to ship", "Made to order"] as const).map((item) => (
+          {(["All", "Ready to ship", "Made to order", "Out of stock"] as const).map((item) => (
             <label
               key={item}
               className="flex cursor-pointer items-center justify-between gap-3 text-sm text-bloom-muted"

@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { ShopBrowser } from "@/components/store/shop-browser";
 import { SiteFooter } from "@/components/store/site-footer";
 import { SiteHeader } from "@/components/store/site-header";
-import { productFlowers, products } from "@/lib/catalog";
+import { loadStorefrontProducts } from "@/lib/data/storefront-catalog";
 
 export const metadata: Metadata = {
   title: "Shop Crochet Blooms",
@@ -11,7 +11,12 @@ export const metadata: Metadata = {
     "Browse handmade crochet flowers and bouquets from Handmade Blooms by CRJ.",
 };
 
-export default function ShopPage() {
+export default async function ShopPage() {
+  const products = await loadStorefrontProducts();
+  const productFlowers = Array.from(
+    new Set(products.map((product) => product.flower)),
+  ).sort();
+
   return (
     <div className="min-h-screen bg-background">
       <SiteHeader />

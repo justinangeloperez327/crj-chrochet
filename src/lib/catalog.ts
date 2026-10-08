@@ -1,5 +1,5 @@
 export type ProductTone = "rose" | "violet" | "peach" | "cream" | "sun";
-export type Availability = "Ready to ship" | "Made to order";
+export type Availability = "Ready to ship" | "Made to order" | "Out of stock";
 export type ProductBadge = "Best Seller" | "New" | "Limited";
 
 export type ProductColor = {
@@ -14,11 +14,24 @@ export type ProductSize = {
   price: number;
 };
 
+export type ProductVariantOption = {
+  id?: string;
+  sku?: string;
+  colorName: string;
+  colorHex: string;
+  sizeName: string;
+  stems: number;
+  price: number;
+  fulfillmentMode: "READY_STOCK" | "MADE_TO_ORDER" | "BOTH";
+  available: number;
+  leadTime?: string;
+};
+
 export type Product = {
   id: string;
   slug: string;
   name: string;
-  flower: "Rose" | "Tulip" | "Daisy" | "Sunflower" | "Lavender";
+  flower: string;
   variant: string;
   price: number;
   availability: Availability;
@@ -27,6 +40,8 @@ export type Product = {
   description: string;
   colors: ProductColor[];
   sizes: ProductSize[];
+  variants?: ProductVariantOption[];
+  defaultVariant?: ProductVariantOption;
   rating: number;
   reviewCount: number;
   stock: number;
@@ -45,7 +60,9 @@ export type ProductPreview = Pick<
   | "availability"
   | "badge"
   | "tone"
->;
+> & {
+  defaultVariant?: ProductVariantOption;
+};
 
 export const products: Product[] = [
   {

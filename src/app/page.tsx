@@ -12,7 +12,8 @@ import { BloomArtwork } from "@/components/store/bloom-art";
 import { ProductCard } from "@/components/store/product-card";
 import { SiteFooter } from "@/components/store/site-footer";
 import { SiteHeader } from "@/components/store/site-header";
-import { featuredProducts, flowerCollections } from "@/lib/catalog";
+import { flowerCollections } from "@/lib/catalog";
+import { loadStorefrontProducts } from "@/lib/data/storefront-catalog";
 
 const occasions = [
   "Birthday",
@@ -23,7 +24,12 @@ const occasions = [
   "Just Because",
 ];
 
-export default function Home() {
+export default async function Home() {
+  const storefrontProducts = await loadStorefrontProducts();
+  const featuredProducts = storefrontProducts
+    .filter((product) => product.featured)
+    .slice(0, 4);
+
   return (
     <div className="min-h-screen overflow-x-hidden bg-background text-foreground">
       <SiteHeader />

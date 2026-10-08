@@ -1,18 +1,39 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, Check, Gift, LockKeyhole, ShoppingBag } from "lucide-react";
-import { FormEvent, useState } from "react";
+import {
+  ArrowLeft,
+  ArrowRight,
+  Check,
+  Gift,
+  LockKeyhole,
+  ShoppingBag,
+} from "lucide-react";
+import { useState, type FormEvent } from "react";
 
 import { BloomArtwork } from "@/components/store/bloom-art";
-import { useCart, useCartSubtotal, useOrderPreferences } from "@/lib/commerce-store";
+import {
+  clearCart,
+  useCart,
+  useCartSubtotal,
+  useOrderPreferences,
+} from "@/lib/commerce-store";
 import { products } from "@/lib/catalog";
 
 type CheckoutStep = "information" | "delivery" | "payment";
 
+type CreatedOrder = {
+  orderNumber: string;
+  total: number;
+  currency: string;
+  status: string;
+  paymentStatus: string;
+  discountAmount: number;
+};
+
 export function CheckoutClient() {
   const cart = useCart();
-  const subtotal = useCartSubtotal();
+  const clientSubtotal = useCartSubtotal();
   const preferences = useOrderPreferences();
   const [step, setStep] = useState<CheckoutStep>("information");
   const [email, setEmail] = useState("");
@@ -25,6 +46,16 @@ export function CheckoutClient() {
     city: "",
     emirate: "",
   });
+  const [discountCode, setDiscountCode] = useState("");
+  const [appliedDiscountCode, setAppliedDiscountCode] = useState("");
+  const [discountAmount, setDiscountAmount] = useState(0);
+  const [discountError, setDiscountError] = useState("");
+  const [discountLoading, setDiscountLoading] = useState(false);
+  const [orderError, setOrderError] = useState("");
+  const [orderLoading, setOrderLoading] = useState(false);
+  const [createdOrder, setCreatedOrder] = useState<CreatedOrder | null>(null);
+
+  const currentTotal = Math.max(0, clientSubtotal - discountAmount);
 
   function handleInformation(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -34,6 +65,153 @@ export function CheckoutClient() {
   function handleDelivery(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setStep("payment");
+  }
+
+  async function applyDiscount() {
+    const code = discountCode.trim().toUpperCase();
+
+    if (!code) {
+      setAppliedDiscountCode("");
+      setDiscountAmount(0);
+      setDiscountError("");
+      return;
+    }
+
+    setDiscountLoading(true);
+    setDiscountError("");
+
+    try {
+      const response = await fetch("/api/discounts/validate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          code,
+          items: toCheckoutItems(cart),
+        }),
+      });
+      const payload = (await response.json()) as {
+        quote?: {
+          discountAmount: number;
+          discountCode: string | null;
+        };
+        error?: string;
+      };
+
+      if (!response.ok || !payload.quote) {
+        throw new Error(payload.error || "The discount could not be applied.");
+      }
+
+      setAppliedDiscountCode(payload.quote.discountCode ?? "");
+      setDiscountAmount(payload.quote.discountAmount);
+    } catch (error) {
+      setAppliedDiscountCode("");
+      setDiscountAmount(0);
+      setDiscountError(
+        error instanceof Error
+          ? error.message
+          : "The discount could not be applied.",
+      );
+    } finally {
+      setDiscountLoading(false);
+    }
+  }
+
+  async function createOrder() {
+    setOrderLoading(true);
+    setOrderError("");
+
+    try {
+      const response = await fetch("/api/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email,
+          address: delivery,
+          items: toCheckoutItems(cart),
+          discountCode: appliedDiscountCode || undefined,
+          isGift: preferences.isGift,
+          giftMessage: preferences.giftMessage,
+          orderNote: preferences.orderNote,
+        }),
+      });
+
+      const payload = (await response.json()) as {
+        order?: CreatedOrder;
+        error?: string;
+      };
+
+      if (!response.ok || !payload.order) {
+        throw new Error(payload.error || "The order could not be created.");
+      }
+
+      setCreatedOrder(payload.order);
+      clearCart();
+    } catch (error) {
+      setOrderError(
+        error instanceof Error
+          ? error.message
+          : "The order could not be created.",
+      );
+    } finally {
+      setOrderLoading(false);
+    }
+  }
+
+  if (createdOrder) {
+    return (
+      <div className="min-h-screen bg-background">
+        <CheckoutHeader />
+        <main className="mx-auto flex min-h-[calc(100vh-4.5rem)] max-w-2xl flex-col items-center justify-center px-5 py-14 text-center sm:px-8">
+          <div className="flex size-14 items-center justify-center rounded-full bg-bloom-pink-soft text-bloom-pink">
+            <Check className="size-5" />
+          </div>
+          <p className="mt-6 text-[11px] font-semibold tracking-[0.18em] text-bloom-violet uppercase">
+            Order saved
+          </p>
+          <h1 className="mt-3 font-display text-4xl font-semibold tracking-[-0.045em] text-bloom-plum sm:text-5xl">
+            Your blooms are reserved.
+          </h1>
+          <p className="mt-4 max-w-lg text-sm leading-6 text-bloom-muted">
+            Order <span className="font-semibold text-bloom-plum">{createdOrder.orderNumber}</span>{" "}
+            has been created as pending payment. No payment has been collected.
+          </p>
+
+          <div className="mt-8 w-full border border-bloom-border bg-white p-6 text-left">
+            <div className="flex items-center justify-between gap-4 border-b border-bloom-border pb-4">
+              <span className="text-sm text-bloom-muted">Order number</span>
+              <span className="text-sm font-semibold text-bloom-plum">
+                {createdOrder.orderNumber}
+              </span>
+            </div>
+            <div className="flex items-center justify-between gap-4 border-b border-bloom-border py-4">
+              <span className="text-sm text-bloom-muted">Payment status</span>
+              <span className="text-xs font-semibold text-bloom-violet">
+                Pending payment
+              </span>
+            </div>
+            <div className="flex items-center justify-between gap-4 pt-4">
+              <span className="text-sm font-semibold text-bloom-plum">Total</span>
+              <span className="text-xl font-semibold text-bloom-plum">
+                {createdOrder.currency} {createdOrder.total}
+              </span>
+            </div>
+          </div>
+
+          <p className="mt-5 max-w-lg text-xs leading-5 text-bloom-muted">
+            Payment processing will be connected in a later implementation group.
+            Until then, this order remains pending and no card or bank details are collected.
+          </p>
+
+          <Link
+            href="/shop"
+            className="mt-7 inline-flex h-12 items-center gap-2 bg-bloom-plum px-6 text-sm font-semibold text-white"
+          >
+            Continue shopping
+            <ArrowRight className="size-4" />
+          </Link>
+        </main>
+      </div>
+    );
   }
 
   if (cart.length === 0) {
@@ -58,22 +236,7 @@ export function CheckoutClient() {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="border-b border-bloom-border bg-white">
-        <div className="mx-auto flex h-18 max-w-[1240px] items-center justify-between px-5 sm:px-8">
-          <Link href="/" className="flex items-baseline gap-2">
-            <span className="font-display text-xl font-semibold text-bloom-plum">
-              Handmade Blooms
-            </span>
-            <span className="text-[9px] font-semibold tracking-[0.18em] text-bloom-pink uppercase">
-              by CRJ
-            </span>
-          </Link>
-          <div className="flex items-center gap-2 text-[11px] font-semibold text-bloom-muted">
-            <LockKeyhole className="size-3.5" />
-            Secure checkout
-          </div>
-        </div>
-      </header>
+      <CheckoutHeader />
 
       <main className="mx-auto grid max-w-[1240px] gap-10 px-5 py-8 sm:px-8 lg:grid-cols-[1fr_430px] lg:gap-16 lg:py-12">
         <div>
@@ -221,7 +384,7 @@ export function CheckoutClient() {
                   Delivery charge
                 </p>
                 <p className="mt-1 text-xs leading-5 text-bloom-muted">
-                  The delivery fee will be confirmed before payment once delivery rules are connected.
+                  Delivery pricing remains AED 0 until delivery-zone rules are implemented.
                 </p>
               </div>
 
@@ -237,7 +400,7 @@ export function CheckoutClient() {
                   type="submit"
                   className="h-12 bg-bloom-plum px-7 text-sm font-semibold text-white"
                 >
-                  Continue to payment
+                  Continue to order
                 </button>
               </div>
             </form>
@@ -249,7 +412,7 @@ export function CheckoutClient() {
                 Step 3
               </p>
               <h1 className="mt-2 font-display text-4xl font-semibold tracking-[-0.04em] text-bloom-plum">
-                Payment
+                Review & create order
               </h1>
 
               <div className="mt-7 border border-bloom-violet/20 bg-bloom-violet-soft/35 p-6">
@@ -257,20 +420,38 @@ export function CheckoutClient() {
                   <LockKeyhole className="size-4" />
                 </div>
                 <p className="mt-4 text-sm font-semibold text-bloom-plum">
-                  Payment integration is intentionally not active yet.
+                  Payment collection is not enabled yet.
                 </p>
                 <p className="mt-2 text-xs leading-5 text-bloom-muted">
-                  The checkout captures the information and delivery flow, but it does not collect or simulate payment. A payment provider can be connected when the backend order model is implemented.
+                  Creating the order will validate current database pricing and stock,
+                  save the customer and delivery address, and reserve available
+                  ready-stock items. The order will remain pending payment.
                 </p>
               </div>
 
-              <button
-                type="button"
-                onClick={() => setStep("delivery")}
-                className="mt-6 h-11 border border-bloom-border bg-white px-5 text-sm font-semibold text-bloom-plum"
-              >
-                Back to delivery
-              </button>
+              {orderError ? (
+                <p className="mt-5 border border-red-200 bg-red-50 px-4 py-3 text-xs leading-5 text-red-700">
+                  {orderError}
+                </p>
+              ) : null}
+
+              <div className="mt-6 flex flex-wrap gap-3">
+                <button
+                  type="button"
+                  onClick={() => setStep("delivery")}
+                  className="h-12 border border-bloom-border bg-white px-6 text-sm font-semibold text-bloom-plum"
+                >
+                  Back to delivery
+                </button>
+                <button
+                  type="button"
+                  disabled={orderLoading}
+                  onClick={createOrder}
+                  className="h-12 bg-bloom-plum px-7 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {orderLoading ? "Creating order…" : "Create pending order"}
+                </button>
+              </div>
             </section>
           ) : null}
         </div>
@@ -283,7 +464,9 @@ export function CheckoutClient() {
 
             <div className="mt-5 space-y-4">
               {cart.map((line, index) => {
-                const product = products.find((item) => item.id === line.productId);
+                const product = products.find(
+                  (item) => item.id === line.productId,
+                );
 
                 return (
                   <div
@@ -330,30 +513,107 @@ export function CheckoutClient() {
               </div>
             ) : null}
 
+            <div className="mt-5 border-t border-bloom-border pt-5">
+              <label
+                htmlFor="discount-code"
+                className="text-xs font-semibold text-bloom-plum"
+              >
+                Discount code
+              </label>
+              <div className="mt-2 flex">
+                <input
+                  id="discount-code"
+                  value={discountCode}
+                  onChange={(event) => {
+                    setDiscountCode(event.target.value.toUpperCase());
+                    if (appliedDiscountCode) {
+                      setAppliedDiscountCode("");
+                      setDiscountAmount(0);
+                    }
+                  }}
+                  placeholder="WELCOME10"
+                  className="h-10 min-w-0 flex-1 border border-bloom-border bg-background px-3 text-xs text-bloom-plum outline-none focus:border-bloom-violet"
+                />
+                <button
+                  type="button"
+                  disabled={discountLoading}
+                  onClick={applyDiscount}
+                  className="h-10 bg-bloom-violet px-4 text-xs font-semibold text-white disabled:opacity-60"
+                >
+                  {discountLoading ? "Checking…" : "Apply"}
+                </button>
+              </div>
+              {discountError ? (
+                <p className="mt-2 text-[11px] leading-4 text-red-600">
+                  {discountError}
+                </p>
+              ) : null}
+              {appliedDiscountCode ? (
+                <p className="mt-2 text-[11px] font-semibold text-bloom-success">
+                  {appliedDiscountCode} applied · AED {discountAmount} saved
+                </p>
+              ) : null}
+            </div>
+
             <div className="mt-5 space-y-3 border-t border-bloom-border pt-5 text-sm">
               <div className="flex justify-between">
                 <span className="text-bloom-muted">Subtotal</span>
                 <span className="font-semibold text-bloom-plum">
-                  AED {subtotal}
+                  AED {clientSubtotal}
                 </span>
               </div>
+              {discountAmount > 0 ? (
+                <div className="flex justify-between">
+                  <span className="text-bloom-muted">Discount</span>
+                  <span className="font-semibold text-bloom-success">
+                    − AED {discountAmount}
+                  </span>
+                </div>
+              ) : null}
               <div className="flex justify-between gap-4">
                 <span className="text-bloom-muted">Delivery</span>
                 <span className="text-right text-xs font-medium text-bloom-plum">
-                  Pending
+                  AED 0
                 </span>
               </div>
               <div className="flex justify-between border-t border-bloom-border pt-4">
-                <span className="font-semibold text-bloom-plum">Current total</span>
+                <span className="font-semibold text-bloom-plum">
+                  Current total
+                </span>
                 <span className="text-lg font-semibold text-bloom-plum">
-                  AED {subtotal}
+                  AED {currentTotal}
                 </span>
               </div>
             </div>
+
+            <p className="mt-4 text-[10px] leading-4 text-bloom-muted">
+              Final totals are recalculated from the database when the order is created.
+            </p>
           </div>
         </aside>
       </main>
     </div>
+  );
+}
+
+function CheckoutHeader() {
+  return (
+    <header className="border-b border-bloom-border bg-white">
+      <div className="mx-auto flex h-18 max-w-[1240px] items-center justify-between px-5 sm:px-8">
+        <Link href="/" className="flex items-baseline gap-2">
+          <span className="font-display text-xl font-semibold text-bloom-plum">
+            Handmade Blooms
+          </span>
+          <span className="text-[9px] font-semibold tracking-[0.18em] text-bloom-pink uppercase">
+            by CRJ
+          </span>
+        </Link>
+        <div className="flex items-center gap-2 text-[11px] font-semibold text-bloom-muted">
+          <LockKeyhole className="size-3.5" />
+          Secure checkout
+        </div>
+      </div>
+    </header>
   );
 }
 
@@ -379,10 +639,12 @@ function CheckoutProgress({ step }: { step: CheckoutStep }) {
             <span
               className={
                 "hidden text-[10px] font-semibold tracking-[0.08em] uppercase sm:inline " +
-                (index <= currentIndex ? "text-bloom-plum" : "text-bloom-muted")
+                (index <= currentIndex
+                  ? "text-bloom-plum"
+                  : "text-bloom-muted")
               }
             >
-              {item}
+              {item === "payment" ? "order" : item}
             </span>
           </div>
           {index < steps.length - 1 ? (
@@ -422,4 +684,19 @@ function Field({
       />
     </label>
   );
+}
+
+function toCheckoutItems(
+  cart: ReturnType<typeof useCart>,
+) {
+  return cart.map((line) => ({
+    productId: line.productId,
+    productSlug: line.productSlug,
+    variantSku: line.variantSku,
+    colorName: line.colorName,
+    sizeName: line.sizeName,
+    stems: line.stems,
+    variant: line.variant,
+    quantity: line.quantity,
+  }));
 }

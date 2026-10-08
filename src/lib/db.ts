@@ -8,20 +8,33 @@ const globalForPrisma = globalThis as unknown as {
 
 function createPrismaClient() {
   const connectionString = process.env.DATABASE_URL;
+  if (!connectionString) return null;
 
-  if (!connectionString) {
+  return new PrismaClient({
+    adapter: new PrismaPg({ connectionString }),
+  });
+}
+
+export function getDb() {
+  if (globalForPrisma.prisma) return globalForPrisma.prisma;
+
+  const client = createPrismaClient();
+
+  if (client && process.env.NODE_ENV !== "production") {
+    globalForPrisma.prisma = client;
+  }
+
+  return client;
+}
+
+export function requireDb() {
+  const client = getDb();
+
+  if (!client) {
     throw new Error(
       "DATABASE_URL is not configured. Set it before using database-backed features.",
     );
   }
 
-  const adapter = new PrismaPg({ connectionString });
-
-  return new PrismaClient({ adapter });
-}
-
-export const db = globalForPrisma.prisma ?? createPrismaClient();
-
-if (process.env.NODE_ENV !== "production") {
-  globalForPrisma.prisma = db;
+  return client;
 }
