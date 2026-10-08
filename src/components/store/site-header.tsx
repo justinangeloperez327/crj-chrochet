@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import {
   Heart,
   Menu,
@@ -9,6 +10,7 @@ import {
   UserRound,
 } from "lucide-react";
 
+import { CartDrawer } from "@/components/store/cart-drawer";
 import { useCartCount, useWishlistCount } from "@/lib/commerce-store";
 
 const navigation = [
@@ -21,6 +23,7 @@ const navigation = [
 export function SiteHeader() {
   const cartCount = useCartCount();
   const wishlistCount = useWishlistCount();
+  const [cartOpen, setCartOpen] = useState(false);
 
   return (
     <>
@@ -86,6 +89,7 @@ export function SiteHeader() {
 
             <button
               type="button"
+              onClick={() => setCartOpen(true)}
               className="relative flex size-9 items-center justify-center text-bloom-plum transition-colors hover:text-bloom-pink"
               aria-label={`Shopping bag with ${cartCount} items`}
             >
@@ -107,6 +111,7 @@ export function SiteHeader() {
           </div>
         </div>
       </header>
+      <CartDrawer open={cartOpen} onOpenChange={setCartOpen} />
     </>
   );
 }
