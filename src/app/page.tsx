@@ -52,7 +52,7 @@ export default function Home() {
 
               <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:items-center">
                 <Link
-                  href="#shop"
+                  href="/shop"
                   className="inline-flex h-12 items-center justify-center gap-2 bg-bloom-plum px-6 text-sm font-semibold text-white transition-colors hover:bg-[#492847]"
                 >
                   Shop the collection
@@ -113,7 +113,7 @@ export default function Home() {
               </h2>
             </div>
             <Link
-              href="#shop"
+              href="/shop"
               className="hidden items-center gap-2 text-sm font-semibold text-bloom-plum transition-colors hover:text-bloom-pink sm:flex"
             >
               See all blooms
@@ -123,7 +123,7 @@ export default function Home() {
 
           <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-5">
             {flowerCollections.map((collection) => (
-              <Link key={collection.name} href="#shop" className="group block">
+              <Link key={collection.name} href="/shop" className="group block">
                 <div className="relative aspect-[4/5] overflow-hidden border border-bloom-border bg-white">
                   <BloomArtwork
                     tone={collection.tone}
@@ -155,10 +155,13 @@ export default function Home() {
                   Most-loved blooms
                 </h2>
               </div>
-              <button className="hidden items-center gap-2 text-sm font-semibold text-bloom-plum transition-colors hover:text-bloom-pink sm:flex">
+              <Link
+                href="/shop"
+                className="hidden items-center gap-2 text-sm font-semibold text-bloom-plum transition-colors hover:text-bloom-pink sm:flex"
+              >
                 Shop all
                 <ArrowRight className="size-4" />
-              </button>
+              </Link>
             </div>
 
             <div className="grid grid-cols-2 gap-x-3 gap-y-9 md:grid-cols-4 md:gap-x-5">

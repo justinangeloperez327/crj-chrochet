@@ -4,15 +4,30 @@ import { Instagram, Mail } from "lucide-react";
 const footerGroups = [
   {
     title: "Shop",
-    links: ["All Blooms", "Best Sellers", "Collections", "Build a Bouquet"],
+    links: [
+      { label: "All Blooms", href: "/shop" },
+      { label: "Best Sellers", href: "/shop" },
+      { label: "Collections", href: "/#collections" },
+      { label: "Build a Bouquet", href: "/#bouquet" },
+    ],
   },
   {
     title: "Help",
-    links: ["Custom Orders", "Delivery", "Care Guide", "Contact"],
+    links: [
+      { label: "Custom Orders", href: "/#bouquet" },
+      { label: "Delivery", href: "#" },
+      { label: "Care Guide", href: "#" },
+      { label: "Contact", href: "#" },
+    ],
   },
   {
     title: "About",
-    links: ["Our Story", "Handmade Process", "FAQ", "Terms"],
+    links: [
+      { label: "Our Story", href: "/#story" },
+      { label: "Handmade Process", href: "/#story" },
+      { label: "FAQ", href: "#" },
+      { label: "Terms", href: "#" },
+    ],
   },
 ];
 
@@ -50,11 +65,11 @@ export function SiteFooter() {
               <div className="mt-4 flex flex-col gap-3">
                 {group.links.map((link) => (
                   <Link
-                    key={link}
-                    href="#"
+                    key={link.label}
+                    href={link.href}
                     className="text-sm text-bloom-muted transition-colors hover:text-bloom-pink"
                   >
-                    {link}
+                    {link.label}
                   </Link>
                 ))}
               </div>
