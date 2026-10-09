@@ -65,7 +65,7 @@ export default async function Home() {
                   <ArrowRight className="size-4" />
                 </Link>
                 <Link
-                  href="#bouquet"
+                  href="/build-a-bouquet"
                   className="inline-flex h-12 items-center justify-center gap-2 border border-bloom-border bg-white/65 px-6 text-sm font-semibold text-bloom-plum transition-colors hover:border-bloom-violet hover:text-bloom-violet"
                 >
                   Build a bouquet
@@ -234,10 +234,13 @@ export default async function Home() {
                 personal message. We will turn your combination into something
                 made just for them.
               </p>
-              <button className="mt-8 inline-flex h-12 items-center justify-center gap-2 bg-bloom-violet px-6 text-sm font-semibold text-white transition-colors hover:bg-[#6827d5]">
+              <Link
+                href="/build-a-bouquet"
+                className="mt-8 inline-flex h-12 items-center justify-center gap-2 bg-bloom-violet px-6 text-sm font-semibold text-white transition-colors hover:bg-[#6827d5]"
+              >
                 Start building
                 <ArrowRight className="size-4" />
-              </button>
+              </Link>
             </div>
 
             <div className="grid grid-cols-2 border border-bloom-violet/15 bg-white/55 backdrop-blur-sm">

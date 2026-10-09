@@ -51,7 +51,15 @@ export default async function AdminProductPage({ params }: ProductPageProps) {
           </p>
         </div>
 
-        {product.status !== "ARCHIVED" ? (
+        <div className="flex flex-wrap gap-2">
+          <Link
+            href={`/admin/products/${product.id}/bom`}
+            className="inline-flex h-10 items-center gap-2 border border-bloom-violet/30 bg-white px-4 text-xs font-semibold text-bloom-violet"
+          >
+            <Boxes className="size-3.5" />
+            BOM
+          </Link>
+          {product.status !== "ARCHIVED" ? (
           <form action={archiveProduct}>
             <input type="hidden" name="id" value={product.id} />
             <button
@@ -62,7 +70,8 @@ export default async function AdminProductPage({ params }: ProductPageProps) {
               Archive
             </button>
           </form>
-        ) : null}
+          ) : null}
+        </div>
       </div>
 
       <div className="mt-7 grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">

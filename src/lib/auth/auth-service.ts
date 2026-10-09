@@ -45,25 +45,33 @@ export async function registerCustomer(input: {
     const [firstName, ...lastNameParts] = name.split(/\s+/);
     const lastName = lastNameParts.join(" ") || null;
 
-    if (customer) {
-      await tx.customer.update({
-        where: { id: customer.id },
-        data: {
-          userId: created.id,
-          firstName: customer.firstName || firstName || null,
-          lastName: customer.lastName || lastName,
-        },
-      });
-    } else {
-      await tx.customer.create({
-        data: {
-          userId: created.id,
-          email,
-          firstName: firstName || null,
-          lastName,
-        },
-      });
-    }
+    const customerRecord = customer
+      ? await tx.customer.update({
+          where: { id: customer.id },
+          data: {
+            userId: created.id,
+            firstName: customer.firstName || firstName || null,
+            lastName: customer.lastName || lastName,
+          },
+        })
+      : await tx.customer.create({
+          data: {
+            userId: created.id,
+            email,
+            firstName: firstName || null,
+            lastName,
+          },
+        });
+
+    await tx.customBouquetRequest.updateMany({
+      where: {
+        customerId: null,
+        email,
+      },
+      data: {
+        customerId: customerRecord.id,
+      },
+    });
 
     return created;
   });

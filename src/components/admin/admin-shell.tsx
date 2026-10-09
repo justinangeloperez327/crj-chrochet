@@ -2,16 +2,20 @@ import Link from "next/link";
 import {
   Boxes,
   Flower2,
+  FlaskConical,
   LayoutDashboard,
   PackageSearch,
   ShoppingBag,
   Store,
+  WandSparkles,
 } from "lucide-react";
 
 const navigation = [
   { label: "Dashboard", href: "/admin", icon: LayoutDashboard },
   { label: "Products", href: "/admin/products", icon: Flower2 },
   { label: "Inventory", href: "/admin/inventory", icon: Boxes },
+  { label: "Materials", href: "/admin/materials", icon: FlaskConical },
+  { label: "Custom Bouquets", href: "/admin/custom-bouquets", icon: WandSparkles },
   { label: "Orders", href: "/admin/orders", icon: PackageSearch },
 ];
 

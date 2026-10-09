@@ -104,3 +104,26 @@ export async function listAccountWishlist(userId: string) {
     orderBy: { createdAt: "desc" },
   });
 }
+
+
+export async function listAccountCustomBouquets(userId: string) {
+  const db = getDb();
+  if (!db) return null;
+
+  const customer = await db.customer.findUnique({
+    where: { userId },
+    select: { id: true },
+  });
+
+  if (!customer) return [];
+
+  return db.customBouquetRequest.findMany({
+    where: { customerId: customer.id },
+    orderBy: { createdAt: "desc" },
+    include: {
+      wrapping: {
+        select: { name: true },
+      },
+    },
+  });
+}

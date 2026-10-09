@@ -8,12 +8,14 @@ import {
   MapPin,
   PackageSearch,
   UserRound,
+  WandSparkles,
 } from "lucide-react";
 
 const navigation = [
   { label: "Overview", href: "/account", icon: Home },
   { label: "Orders", href: "/account/orders", icon: PackageSearch },
   { label: "Wishlist", href: "/account/wishlist", icon: Heart },
+  { label: "Custom Bouquets", href: "/account/custom-bouquets", icon: WandSparkles },
   { label: "Addresses", href: "/account/addresses", icon: MapPin },
 ];
 

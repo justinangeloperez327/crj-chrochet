@@ -143,6 +143,40 @@ const seedProducts = [
   },
 ] as const;
 
+
+const seedMaterials = [
+  ["YARN-PINK", "Pink Yarn", "Yarn", "Soft Pink", "GRAM", 1500, 250, 0.08],
+  ["YARN-LAVENDER", "Lavender Yarn", "Yarn", "Lavender", "GRAM", 1200, 200, 0.08],
+  ["YARN-CREAM", "Cream Yarn", "Yarn", "Cream", "GRAM", 1000, 180, 0.08],
+  ["YARN-YELLOW", "Yellow Yarn", "Yarn", "Golden Yellow", "GRAM", 900, 180, 0.08],
+  ["YARN-GREEN", "Green Yarn", "Yarn", "Leaf Green", "GRAM", 1800, 300, 0.07],
+  ["WIRE-FLORAL", "Floral Wire", "Structure", null, "PIECE", 500, 100, 0.35],
+  ["TAPE-FLORAL", "Floral Tape", "Structure", "Green", "METER", 180, 30, 0.45],
+  ["WRAP-KRAFT", "Kraft Wrapping Sheet", "Wrapping", "Kraft", "PIECE", 120, 25, 1.5],
+  ["WRAP-PINK", "Pink Wrapping Sheet", "Wrapping", "Pink", "PIECE", 100, 20, 1.8],
+  ["WRAP-VIOLET", "Violet Wrapping Sheet", "Wrapping", "Violet", "PIECE", 100, 20, 1.8],
+  ["WRAP-CLEAR", "Clear Floral Sleeve", "Wrapping", null, "PIECE", 100, 20, 1.2],
+  ["RIBBON-SATIN", "Satin Ribbon", "Wrapping", "Neutral", "METER", 250, 40, 0.6],
+] as const;
+
+const seedStemOptions = [
+  ["tulip-soft-pink", "Tulip", "Soft Pink", "#e85d9e", 15, 10],
+  ["tulip-lavender", "Tulip", "Lavender", "#8b5cf6", 15, 20],
+  ["rose-blush-pink", "Rose", "Blush Pink", "#e85d9e", 18, 30],
+  ["rose-lavender", "Rose", "Lavender", "#8b5cf6", 18, 40],
+  ["daisy-cream", "Daisy", "Cream", "#f1dfb8", 14, 50],
+  ["daisy-peach", "Daisy", "Peach Blush", "#ef8d7f", 14, 60],
+  ["sunflower-golden", "Sunflower", "Golden Yellow", "#f2c94c", 20, 70],
+] as const;
+
+const seedWrapOptions = [
+  ["classic", "Classic Wrap", "Simple clear sleeve with satin ribbon.", 8, 10],
+  ["kraft", "Kraft Wrap", "Warm kraft paper with satin ribbon.", 10, 20],
+  ["pink", "Pink Wrap", "Soft pink wrapping with satin ribbon.", 12, 30],
+  ["violet", "Violet Wrap", "Violet wrapping with satin ribbon.", 12, 40],
+  ["premium", "Premium Layered Wrap", "Layered colored wrap, clear sleeve, and ribbon.", 22, 50],
+] as const;
+
 async function main() {
   const category = await prisma.category.upsert({
     where: { slug: "crochet-flowers" },
@@ -277,6 +311,324 @@ async function main() {
     }
   }
 
+
+  const materialIds = new Map<string, string>();
+
+  for (const [
+    sku,
+    name,
+    categoryName,
+    colorName,
+    unit,
+    stockOnHand,
+    reorderLevel,
+    unitCost,
+  ] of seedMaterials) {
+    const material = await prisma.rawMaterial.upsert({
+      where: { sku },
+      update: {
+        name,
+        category: categoryName,
+        colorName,
+        unit,
+        reorderLevel,
+        unitCost,
+        isActive: true,
+      },
+      create: {
+        sku,
+        name,
+        category: categoryName,
+        colorName,
+        unit,
+        stockOnHand,
+        reorderLevel,
+        unitCost,
+        isActive: true,
+      },
+    });
+
+    materialIds.set(sku, material.id);
+
+    const movementCount = await prisma.rawMaterialMovement.count({
+      where: {
+        materialId: material.id,
+        type: "OPENING",
+      },
+    });
+
+    if (movementCount === 0 && Number(material.stockOnHand) > 0) {
+      await prisma.rawMaterialMovement.create({
+        data: {
+          materialId: material.id,
+          type: "OPENING",
+          quantity: material.stockOnHand,
+          note: "Opening raw-material stock",
+        },
+      });
+    }
+  }
+
+  const stemIds = new Map<string, string>();
+
+  for (const [
+    slug,
+    flowerType,
+    colorName,
+    colorHex,
+    unitPrice,
+    sortOrder,
+  ] of seedStemOptions) {
+    const stem = await prisma.bouquetStemOption.upsert({
+      where: { slug },
+      update: {
+        flowerType,
+        colorName,
+        colorHex,
+        unitPrice,
+        sortOrder,
+        isActive: true,
+      },
+      create: {
+        slug,
+        flowerType,
+        colorName,
+        colorHex,
+        unitPrice,
+        sortOrder,
+        isActive: true,
+      },
+    });
+
+    stemIds.set(slug, stem.id);
+  }
+
+  const stemRecipes: Record<string, Array<[string, number]>> = {
+    "tulip-soft-pink": [
+      ["YARN-PINK", 8],
+      ["YARN-GREEN", 3],
+      ["WIRE-FLORAL", 1],
+      ["TAPE-FLORAL", 0.25],
+    ],
+    "tulip-lavender": [
+      ["YARN-LAVENDER", 8],
+      ["YARN-GREEN", 3],
+      ["WIRE-FLORAL", 1],
+      ["TAPE-FLORAL", 0.25],
+    ],
+    "rose-blush-pink": [
+      ["YARN-PINK", 10],
+      ["YARN-GREEN", 3],
+      ["WIRE-FLORAL", 1],
+      ["TAPE-FLORAL", 0.3],
+    ],
+    "rose-lavender": [
+      ["YARN-LAVENDER", 10],
+      ["YARN-GREEN", 3],
+      ["WIRE-FLORAL", 1],
+      ["TAPE-FLORAL", 0.3],
+    ],
+    "daisy-cream": [
+      ["YARN-CREAM", 7],
+      ["YARN-GREEN", 2.5],
+      ["WIRE-FLORAL", 1],
+      ["TAPE-FLORAL", 0.22],
+    ],
+    "daisy-peach": [
+      ["YARN-PINK", 7],
+      ["YARN-GREEN", 2.5],
+      ["WIRE-FLORAL", 1],
+      ["TAPE-FLORAL", 0.22],
+    ],
+    "sunflower-golden": [
+      ["YARN-YELLOW", 12],
+      ["YARN-GREEN", 4],
+      ["WIRE-FLORAL", 1],
+      ["TAPE-FLORAL", 0.35],
+    ],
+  };
+
+  for (const [slug, recipes] of Object.entries(stemRecipes)) {
+    const stemOptionId = stemIds.get(slug);
+    if (!stemOptionId) continue;
+
+    for (const [materialSku, quantity] of recipes) {
+      const materialId = materialIds.get(materialSku);
+      if (!materialId) continue;
+
+      await prisma.bouquetStemMaterial.upsert({
+        where: {
+          stemOptionId_materialId: {
+            stemOptionId,
+            materialId,
+          },
+        },
+        update: { quantity },
+        create: {
+          stemOptionId,
+          materialId,
+          quantity,
+        },
+      });
+    }
+  }
+
+  const wrapIds = new Map<string, string>();
+
+  for (const [slug, name, description, price, sortOrder] of seedWrapOptions) {
+    const wrap = await prisma.bouquetWrapOption.upsert({
+      where: { slug },
+      update: {
+        name,
+        description,
+        price,
+        sortOrder,
+        isActive: true,
+      },
+      create: {
+        slug,
+        name,
+        description,
+        price,
+        sortOrder,
+        isActive: true,
+      },
+    });
+
+    wrapIds.set(slug, wrap.id);
+  }
+
+  const wrapRecipes: Record<string, Array<[string, number]>> = {
+    classic: [
+      ["WRAP-CLEAR", 1],
+      ["RIBBON-SATIN", 0.8],
+    ],
+    kraft: [
+      ["WRAP-KRAFT", 1],
+      ["RIBBON-SATIN", 1],
+    ],
+    pink: [
+      ["WRAP-PINK", 1],
+      ["RIBBON-SATIN", 1],
+    ],
+    violet: [
+      ["WRAP-VIOLET", 1],
+      ["RIBBON-SATIN", 1],
+    ],
+    premium: [
+      ["WRAP-PINK", 1],
+      ["WRAP-CLEAR", 1],
+      ["RIBBON-SATIN", 1.5],
+    ],
+  };
+
+  for (const [slug, recipes] of Object.entries(wrapRecipes)) {
+    const wrapOptionId = wrapIds.get(slug);
+    if (!wrapOptionId) continue;
+
+    for (const [materialSku, quantity] of recipes) {
+      const materialId = materialIds.get(materialSku);
+      if (!materialId) continue;
+
+      await prisma.bouquetWrapMaterial.upsert({
+        where: {
+          wrapOptionId_materialId: {
+            wrapOptionId,
+            materialId,
+          },
+        },
+        update: { quantity },
+        create: {
+          wrapOptionId,
+          materialId,
+          quantity,
+        },
+      });
+    }
+  }
+
+  const variantBomRules: Record<string, Array<[string, number]>> = {
+    Tulip: [
+      ["YARN-GREEN", 3],
+      ["WIRE-FLORAL", 1],
+      ["TAPE-FLORAL", 0.25],
+    ],
+    Rose: [
+      ["YARN-GREEN", 3],
+      ["WIRE-FLORAL", 1],
+      ["TAPE-FLORAL", 0.3],
+    ],
+    Daisy: [
+      ["YARN-GREEN", 2.5],
+      ["WIRE-FLORAL", 1],
+      ["TAPE-FLORAL", 0.22],
+    ],
+    Sunflower: [
+      ["YARN-GREEN", 4],
+      ["WIRE-FLORAL", 1],
+      ["TAPE-FLORAL", 0.35],
+    ],
+  };
+
+  const variantsForBom = await prisma.productVariant.findMany({
+    include: { product: true },
+  });
+
+  for (const variant of variantsForBom) {
+    if (!variant.stems || variant.fulfillmentMode !== "MADE_TO_ORDER") {
+      continue;
+    }
+
+    const baseRecipes = variantBomRules[variant.product.flowerType] ?? [];
+    const colorMaterialSku =
+      variant.colorName?.toLowerCase().includes("lavender") ||
+      variant.colorName?.toLowerCase().includes("violet")
+        ? "YARN-LAVENDER"
+        : variant.colorName?.toLowerCase().includes("cream") ||
+            variant.colorName?.toLowerCase().includes("ivory")
+          ? "YARN-CREAM"
+          : variant.colorName?.toLowerCase().includes("yellow") ||
+              variant.colorName?.toLowerCase().includes("golden")
+            ? "YARN-YELLOW"
+            : "YARN-PINK";
+
+    const coloredYarnPerStem =
+      variant.product.flowerType === "Sunflower"
+        ? 12
+        : variant.product.flowerType === "Rose"
+          ? 10
+          : variant.product.flowerType === "Daisy"
+            ? 7
+            : 8;
+
+    const completeRecipes: Array<[string, number]> = [
+      [colorMaterialSku, coloredYarnPerStem],
+      ...baseRecipes,
+    ];
+
+    for (const [materialSku, quantityPerStem] of completeRecipes) {
+      const materialId = materialIds.get(materialSku);
+      if (!materialId) continue;
+
+      await prisma.variantMaterial.upsert({
+        where: {
+          variantId_materialId: {
+            variantId: variant.id,
+            materialId,
+          },
+        },
+        update: {
+          quantity: quantityPerStem * variant.stems,
+        },
+        create: {
+          variantId: variant.id,
+          materialId,
+          quantity: quantityPerStem * variant.stems,
+        },
+      });
+    }
+  }
+
   await prisma.discount.upsert({
     where: { code: "WELCOME10" },
     update: {
@@ -360,7 +712,7 @@ async function main() {
   });
 
   console.log(
-    `Seeded ${seedProducts.length} products, collections, inventory, discount, demo customer${adminEmail && adminPassword ? ", and admin account" : ""}.`,
+    `Seeded ${seedProducts.length} products, collections, finished inventory, raw materials, bouquet recipes, discount, demo customer${adminEmail && adminPassword ? ", and admin account" : ""}.`,
   );
 }
 

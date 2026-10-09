@@ -122,6 +122,10 @@ export async function getAdminProduct(id: string) {
             take: 8,
             orderBy: { createdAt: "desc" },
           },
+          billOfMaterials: {
+            include: { material: true },
+            orderBy: { material: { name: "asc" } },
+          },
         },
       },
     },
@@ -204,6 +208,86 @@ export async function getAdminOrder(id: string) {
             },
           },
         },
+      },
+    },
+  });
+}
+
+
+export async function listRawMaterialsForBom() {
+  const db = getDb();
+  if (!db) return null;
+
+  return db.rawMaterial.findMany({
+    where: { isActive: true },
+    orderBy: [{ category: "asc" }, { name: "asc" }],
+  });
+}
+
+export async function listAdminMaterials() {
+  const db = getDb();
+  if (!db) return null;
+
+  const [materials, movements] = await Promise.all([
+    db.rawMaterial.findMany({
+      where: { isActive: true },
+      orderBy: [{ category: "asc" }, { name: "asc" }],
+    }),
+    db.rawMaterialMovement.findMany({
+      take: 40,
+      orderBy: { createdAt: "desc" },
+      include: {
+        material: true,
+        orderItem: {
+          select: {
+            productName: true,
+            sku: true,
+            order: { select: { orderNumber: true } },
+          },
+        },
+        customBouquetRequest: {
+          select: { referenceNumber: true },
+        },
+      },
+    }),
+  ]);
+
+  return { materials, movements };
+}
+
+export async function listAdminCustomBouquets() {
+  const db = getDb();
+  if (!db) return null;
+
+  return db.customBouquetRequest.findMany({
+    take: 100,
+    orderBy: { createdAt: "desc" },
+    include: {
+      wrapping: {
+        select: { name: true },
+      },
+      customer: {
+        select: {
+          firstName: true,
+          lastName: true,
+        },
+      },
+    },
+  });
+}
+
+export async function getAdminCustomBouquet(id: string) {
+  const db = getDb();
+  if (!db) return null;
+
+  return db.customBouquetRequest.findUnique({
+    where: { id },
+    include: {
+      wrapping: true,
+      customer: true,
+      materialMovements: {
+        orderBy: { createdAt: "asc" },
+        include: { material: true },
       },
     },
   });

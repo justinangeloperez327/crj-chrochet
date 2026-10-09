@@ -5,6 +5,10 @@ import { redirect } from "next/navigation";
 
 import { requireAdmin } from "@/lib/auth/guards";
 import { requireDb } from "@/lib/db";
+import {
+  consumeCustomBouquetMaterials,
+  consumeOrderItemMaterials,
+} from "@/lib/materials/material-service";
 
 const PRODUCT_STATUSES = ["DRAFT", "ACTIVE", "ARCHIVED"] as const;
 const FULFILLMENT_MODES = ["READY_STOCK", "MADE_TO_ORDER", "BOTH"] as const;
@@ -277,6 +281,9 @@ export async function updateOrderWorkflow(formData: FormData) {
       where: { id: orderId },
       include: {
         inventoryMovement: true,
+        items: {
+          select: { id: true },
+        },
       },
     });
 
@@ -298,8 +305,15 @@ export async function updateOrderWorkflow(formData: FormData) {
       status = "CONFIRMED";
     }
 
-    if (status === "FULFILLED" && paymentStatus !== "PAID") {
-      throw new Error("An order must be paid before it can be fulfilled.");
+    if (
+      ["IN_PRODUCTION", "QUALITY_CHECK", "READY", "FULFILLED"].includes(
+        status,
+      ) &&
+      paymentStatus !== "PAID"
+    ) {
+      throw new Error(
+        "An order must be paid before production or fulfillment can begin.",
+      );
     }
 
     const outstandingReservations = getOutstandingReservations(
@@ -326,6 +340,16 @@ export async function updateOrderWorkflow(formData: FormData) {
             note: `Reservation released after cancelling ${order.orderNumber}`,
           },
         });
+      }
+    }
+
+    if (
+      ["IN_PRODUCTION", "QUALITY_CHECK", "READY", "FULFILLED"].includes(
+        status,
+      )
+    ) {
+      for (const item of order.items) {
+        await consumeOrderItemMaterials(tx, item.id);
       }
     }
 
@@ -516,4 +540,222 @@ function slugify(value: string) {
     .trim()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
+}
+
+
+export async function createRawMaterial(formData: FormData) {
+  await requireAdmin();
+  const db = requireDb();
+
+  const sku = required(formData, "sku").toUpperCase();
+  const stockOnHand = decimal(formData, "stockOnHand", 0);
+  const reorderLevel = decimal(formData, "reorderLevel", 0);
+
+  if (stockOnHand < 0 || reorderLevel < 0) {
+    throw new Error("Material quantities cannot be negative.");
+  }
+
+  await db.$transaction(async (tx) => {
+    const material = await tx.rawMaterial.create({
+      data: {
+        sku,
+        name: required(formData, "name"),
+        category: required(formData, "category"),
+        colorName: optional(formData, "colorName") || null,
+        unit: enumValue(
+          required(formData, "unit"),
+          ["GRAM", "METER", "PIECE", "ROLL", "PACK"] as const,
+          "material unit",
+        ),
+        stockOnHand,
+        reorderLevel,
+        unitCost: optional(formData, "unitCost")
+          ? decimal(formData, "unitCost")
+          : null,
+        isActive: true,
+      },
+    });
+
+    if (stockOnHand > 0) {
+      await tx.rawMaterialMovement.create({
+        data: {
+          materialId: material.id,
+          type: "OPENING",
+          quantity: stockOnHand,
+          note: "Opening raw-material stock",
+        },
+      });
+    }
+  });
+
+  revalidatePath("/admin/materials");
+}
+
+export async function adjustRawMaterialStock(formData: FormData) {
+  await requireAdmin();
+  const db = requireDb();
+  const materialId = required(formData, "materialId");
+  const delta = decimal(formData, "delta");
+  const note = optional(formData, "note") || "Manual raw-material adjustment";
+
+  if (delta === 0) throw new Error("Adjustment cannot be zero.");
+
+  await db.$transaction(async (tx) => {
+    const material = await tx.rawMaterial.findUnique({
+      where: { id: materialId },
+    });
+
+    if (!material) throw new Error("Raw material not found.");
+
+    const next = Number(material.stockOnHand) + delta;
+
+    if (next < 0) {
+      throw new Error("Raw-material stock cannot be negative.");
+    }
+
+    await tx.rawMaterial.update({
+      where: { id: materialId },
+      data: { stockOnHand: next },
+    });
+
+    await tx.rawMaterialMovement.create({
+      data: {
+        materialId,
+        type: "ADJUSTMENT",
+        quantity: delta,
+        note,
+      },
+    });
+  });
+
+  revalidatePath("/admin/materials");
+}
+
+export async function setVariantMaterial(formData: FormData) {
+  await requireAdmin();
+  const db = requireDb();
+  const variantId = required(formData, "variantId");
+  const materialId = required(formData, "materialId");
+  const productId = required(formData, "productId");
+  const quantity = decimal(formData, "quantity");
+
+  if (quantity <= 0) {
+    throw new Error("BOM quantity must be greater than zero.");
+  }
+
+  await db.variantMaterial.upsert({
+    where: {
+      variantId_materialId: {
+        variantId,
+        materialId,
+      },
+    },
+    update: { quantity },
+    create: {
+      variantId,
+      materialId,
+      quantity,
+    },
+  });
+
+  revalidatePath(`/admin/products/${productId}/bom`);
+}
+
+export async function removeVariantMaterial(formData: FormData) {
+  await requireAdmin();
+  const db = requireDb();
+  const variantId = required(formData, "variantId");
+  const materialId = required(formData, "materialId");
+  const productId = required(formData, "productId");
+
+  await db.variantMaterial.deleteMany({
+    where: { variantId, materialId },
+  });
+
+  revalidatePath(`/admin/products/${productId}/bom`);
+}
+
+export async function updateCustomBouquetStatus(formData: FormData) {
+  await requireAdmin();
+  const db = requireDb();
+  const requestId = required(formData, "requestId");
+  const status = enumValue(
+    required(formData, "status"),
+    [
+      "SUBMITTED",
+      "REVIEWING",
+      "APPROVED",
+      "IN_PRODUCTION",
+      "READY",
+      "COMPLETED",
+      "DECLINED",
+    ] as const,
+    "custom bouquet status",
+  );
+
+  const request = await db.customBouquetRequest.findUnique({
+    where: { id: requestId },
+    select: {
+      status: true,
+      materialsConsumedAt: true,
+    },
+  });
+
+  if (!request) throw new Error("Custom bouquet request not found.");
+
+  if (!isValidCustomBouquetTransition(request.status, status)) {
+    throw new Error(
+      `Invalid custom bouquet transition from ${request.status} to ${status}.`,
+    );
+  }
+
+  if (
+    ["IN_PRODUCTION", "READY", "COMPLETED"].includes(status) &&
+    !request.materialsConsumedAt
+  ) {
+    await consumeCustomBouquetMaterials(requestId);
+  }
+
+  await db.customBouquetRequest.update({
+    where: { id: requestId },
+    data: { status },
+  });
+
+  revalidatePath("/admin/custom-bouquets");
+  revalidatePath(`/admin/custom-bouquets/${requestId}`);
+  revalidatePath("/admin/materials");
+}
+
+function decimal(formData: FormData, key: string, fallback?: number) {
+  const value = optional(formData, key);
+
+  if (!value && fallback !== undefined) return fallback;
+
+  const parsed = Number(value);
+
+  if (!Number.isFinite(parsed)) {
+    throw new Error(`${key} must be a valid number.`);
+  }
+
+  return Math.round(parsed * 1000) / 1000;
+}
+
+
+function isValidCustomBouquetTransition(
+  current: string,
+  next: string,
+) {
+  if (current === next) return true;
+
+  const transitions: Record<string, string[]> = {
+    SUBMITTED: ["REVIEWING", "DECLINED"],
+    REVIEWING: ["APPROVED", "DECLINED"],
+    APPROVED: ["IN_PRODUCTION", "DECLINED"],
+    IN_PRODUCTION: ["READY"],
+    READY: ["COMPLETED"],
+    COMPLETED: [],
+    DECLINED: [],
+  };
+
+  return transitions[current]?.includes(next) ?? false;
 }

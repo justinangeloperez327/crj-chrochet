@@ -7,7 +7,8 @@ export function StatusBadge({ value }: { value: string }) {
       : value.includes("PAID") ||
           value.includes("ACTIVE") ||
           value.includes("DELIVERED") ||
-          value.includes("FULFILLED")
+          value.includes("FULFILLED") ||
+          value.includes("COMPLETED")
         ? "border-emerald-200 bg-emerald-50 text-emerald-700"
         : value.includes("PRODUCTION") ||
             value.includes("QUALITY") ||
