@@ -225,6 +225,7 @@ async function calculateBouquet(
       unit: string;
       quantity: number;
       stockOnHand: number;
+      stockReserved: number;
     }
   >();
 
@@ -270,7 +271,8 @@ async function calculateBouquet(
     materialPlan: [...materialTotals.values()].map((item) => ({
       ...item,
       quantity: roundQuantity(item.quantity),
-      sufficient: item.stockOnHand >= item.quantity,
+      sufficient:
+        item.stockOnHand - item.stockReserved >= item.quantity,
     })),
     totalStems,
     subtotal: roundMoney(subtotal),
@@ -293,6 +295,7 @@ function addMaterial(
       unit: string;
       quantity: number;
       stockOnHand: number;
+      stockReserved: number;
     }
   >,
   material: {
@@ -301,6 +304,7 @@ function addMaterial(
     name: string;
     unit: string;
     stockOnHand: { toString(): string };
+    stockReserved: { toString(): string };
   },
   quantity: number,
 ) {
@@ -318,6 +322,7 @@ function addMaterial(
     unit: material.unit,
     quantity,
     stockOnHand: Number(material.stockOnHand),
+    stockReserved: Number(material.stockReserved),
   });
 }
 

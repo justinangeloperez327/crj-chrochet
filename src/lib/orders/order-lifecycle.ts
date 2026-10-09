@@ -1,5 +1,6 @@
 import type { Prisma } from "@/generated/prisma/client";
 import { requireDb } from "@/lib/db";
+import { releaseCustomBouquetForOrder } from "@/lib/materials/material-service";
 
 export async function markOrderPaidFromStripe(externalId: string) {
   const db = requireDb();
@@ -42,6 +43,16 @@ export async function markOrderPaidFromStripe(externalId: string) {
     await tx.paymentAttempt.update({
       where: { id: attempt.id },
       data: { status: "PAID", paidAt },
+    });
+
+    await tx.customBouquetRequest.updateMany({
+      where: {
+        orderId: order.id,
+        status: "AWAITING_PAYMENT",
+      },
+      data: {
+        status: "PAID",
+      },
     });
 
     if (order.discountId) {
@@ -143,6 +154,11 @@ export async function expireStripeCheckout(externalId: string) {
       attempt.orderId,
       `Released after payment session expired for ${attempt.order.orderNumber}`,
     );
+    await releaseCustomBouquetForOrder(
+      tx,
+      attempt.orderId,
+      `Released after payment session expired for ${attempt.order.orderNumber}`,
+    );
 
     return tx.order.update({
       where: { id: attempt.orderId },
@@ -167,6 +183,7 @@ export async function cancelPendingOrder(
     if (!order || order.status !== "PENDING_PAYMENT") return order;
 
     await releaseReservationsForOrder(tx, orderId, note);
+    await releaseCustomBouquetForOrder(tx, orderId, note);
 
     await tx.paymentAttempt.updateMany({
       where: {

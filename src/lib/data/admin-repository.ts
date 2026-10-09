@@ -195,6 +195,13 @@ export async function getAdminOrder(id: string) {
       customer: true,
       shippingAddress: true,
       discount: true,
+      customBouquetRequest: {
+        select: {
+          id: true,
+          referenceNumber: true,
+          status: true,
+        },
+      },
       items: {
         orderBy: { createdAt: "asc" },
       },
@@ -285,6 +292,14 @@ export async function getAdminCustomBouquet(id: string) {
     include: {
       wrapping: true,
       customer: true,
+      order: {
+        include: {
+          paymentAttempts: {
+            orderBy: { createdAt: "desc" },
+            take: 3,
+          },
+        },
+      },
       materialMovements: {
         orderBy: { createdAt: "asc" },
         include: { material: true },

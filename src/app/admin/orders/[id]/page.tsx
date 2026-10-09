@@ -42,6 +42,14 @@ export default async function AdminOrderPage({ params }: OrderPageProps) {
             Created {formatDateTime(order.createdAt)} · {order.items.length} line
             {order.items.length === 1 ? "" : "s"}
           </p>
+          {order.customBouquetRequest ? (
+            <Link
+              href={`/admin/custom-bouquets/${order.customBouquetRequest.id}`}
+              className="mt-2 inline-flex text-xs font-semibold text-bloom-violet hover:text-bloom-pink"
+            >
+              Custom bouquet {order.customBouquetRequest.referenceNumber}
+            </Link>
+          ) : null}
         </div>
 
         <div className="flex flex-wrap gap-2">

@@ -17,7 +17,8 @@ export default async function AdminMaterialsPage() {
 
   const lowStock = data.materials.filter(
     (material) =>
-      Number(material.stockOnHand) <= Number(material.reorderLevel),
+      Number(material.stockOnHand) - Number(material.stockReserved) <=
+      Number(material.reorderLevel),
   );
 
   return (
@@ -44,13 +45,15 @@ export default async function AdminMaterialsPage() {
 
       <section className="mt-7 overflow-hidden border border-bloom-border bg-white">
         <div className="overflow-x-auto">
-          <table className="min-w-[1100px] w-full text-left text-xs">
+          <table className="min-w-[1250px] w-full text-left text-xs">
             <thead className="border-b border-bloom-border bg-[#faf8fa] text-[10px] uppercase tracking-[0.08em] text-bloom-muted">
               <tr>
                 <th className="px-5 py-3 font-semibold">Material</th>
                 <th className="px-5 py-3 font-semibold">Category</th>
                 <th className="px-5 py-3 font-semibold">Unit</th>
                 <th className="px-5 py-3 text-right font-semibold">On hand</th>
+                <th className="px-5 py-3 text-right font-semibold">Reserved</th>
+                <th className="px-5 py-3 text-right font-semibold">Available</th>
                 <th className="px-5 py-3 text-right font-semibold">Reorder</th>
                 <th className="px-5 py-3 font-semibold">Adjustment</th>
               </tr>
@@ -58,8 +61,10 @@ export default async function AdminMaterialsPage() {
             <tbody>
               {data.materials.map((material) => {
                 const onHand = Number(material.stockOnHand);
+                const reserved = Number(material.stockReserved);
+                const available = onHand - reserved;
                 const reorder = Number(material.reorderLevel);
-                const low = onHand <= reorder;
+                const low = available <= reorder;
 
                 return (
                   <tr
@@ -93,6 +98,12 @@ export default async function AdminMaterialsPage() {
                           low
                         </p>
                       ) : null}
+                    </td>
+                    <td className="px-5 py-4 text-right text-bloom-muted">
+                      {reserved}
+                    </td>
+                    <td className="px-5 py-4 text-right font-semibold text-bloom-plum">
+                      {available}
                     </td>
                     <td className="px-5 py-4 text-right text-bloom-muted">
                       {reorder}

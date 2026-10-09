@@ -124,6 +124,15 @@ export async function listAccountCustomBouquets(userId: string) {
       wrapping: {
         select: { name: true },
       },
+      order: {
+        select: {
+          id: true,
+          orderNumber: true,
+          paymentStatus: true,
+          status: true,
+          total: true,
+        },
+      },
     },
   });
 }

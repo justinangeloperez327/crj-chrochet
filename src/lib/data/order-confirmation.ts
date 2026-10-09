@@ -15,6 +15,13 @@ export async function getOrderConfirmationByStripeSession(
             orderBy: { createdAt: "asc" },
           },
           shippingAddress: true,
+          customBouquetRequest: {
+            select: {
+              id: true,
+              referenceNumber: true,
+              totalStems: true,
+            },
+          },
         },
       },
     },

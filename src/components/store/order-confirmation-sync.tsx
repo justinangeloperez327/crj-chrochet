@@ -7,14 +7,18 @@ import { clearCart } from "@/lib/commerce-store";
 
 export function OrderConfirmationSync({
   paid,
+  clearCartOnPaid = true,
 }: {
   paid: boolean;
+  clearCartOnPaid?: boolean;
 }) {
   const router = useRouter();
 
   useEffect(() => {
     if (paid) {
-      clearCart();
+      if (clearCartOnPaid) {
+        clearCart();
+      }
       return;
     }
 
@@ -29,7 +33,7 @@ export function OrderConfirmationSync({
     }, 2500);
 
     return () => window.clearInterval(interval);
-  }, [paid, router]);
+  }, [clearCartOnPaid, paid, router]);
 
   return null;
 }

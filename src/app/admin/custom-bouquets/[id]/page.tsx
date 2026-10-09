@@ -2,7 +2,10 @@ import Link from "next/link";
 import { ArrowLeft, Flower2 } from "lucide-react";
 import { notFound } from "next/navigation";
 
-import { updateCustomBouquetStatus } from "@/app/admin/actions";
+import {
+  finalizeCustomBouquetQuote,
+  updateCustomBouquetStatus,
+} from "@/app/admin/actions";
 import { DatabaseRequired } from "@/components/admin/database-required";
 import { StatusBadge } from "@/components/admin/status-badge";
 import { getAdminCustomBouquet } from "@/lib/data/admin-repository";
@@ -179,6 +182,12 @@ export default async function AdminCustomBouquetPage({ params }: Props) {
                 <option value="SUBMITTED">Submitted</option>
                 <option value="REVIEWING">Reviewing</option>
                 <option value="APPROVED">Approved</option>
+                <option value="AWAITING_PAYMENT" disabled>
+                  Awaiting payment
+                </option>
+                <option value="PAID" disabled>
+                  Paid
+                </option>
                 <option value="IN_PRODUCTION">In production</option>
                 <option value="READY">Ready</option>
                 <option value="COMPLETED">Completed</option>
@@ -201,23 +210,122 @@ export default async function AdminCustomBouquetPage({ params }: Props) {
           </section>
 
           <section className="border border-bloom-border bg-white p-5">
-            <h2 className="text-sm font-semibold">Estimate</h2>
+            <h2 className="text-sm font-semibold">Commercial quote</h2>
+
             <div className="mt-4 space-y-3 text-xs">
               <Row
-                label="Flowers"
-                value={`AED ${Number(request.estimatedSubtotal)}`}
+                label="Original estimate"
+                value={`AED ${Number(request.estimatedTotal)}`}
               />
               <Row
-                label="Wrapping"
-                value={`AED ${Number(request.estimatedTotal) - Number(request.estimatedSubtotal)}`}
+                label="Final bouquet price"
+                value={
+                  request.finalPrice !== null
+                    ? `AED ${Number(request.finalPrice)}`
+                    : "Not finalized"
+                }
               />
-              <div className="flex items-end justify-between border-t border-bloom-border pt-4">
-                <span className="font-semibold">Estimated total</span>
-                <span className="text-xl font-semibold">
-                  AED {Number(request.estimatedTotal)}
-                </span>
-              </div>
+              <Row
+                label="Lead time"
+                value={
+                  request.leadTimeMinDays !== null &&
+                  request.leadTimeMaxDays !== null
+                    ? `${request.leadTimeMinDays}–${request.leadTimeMaxDays} days`
+                    : "Not finalized"
+                }
+              />
+              <Row
+                label="Payment"
+                value={request.order?.paymentStatus ?? "Not started"}
+              />
+              {request.order ? (
+                <Row
+                  label="Order"
+                  value={request.order.orderNumber}
+                />
+              ) : null}
             </div>
+
+            {(request.status === "APPROVED" ||
+              (request.status === "AWAITING_PAYMENT" &&
+                !request.order)) ? (
+              <form
+                action={finalizeCustomBouquetQuote}
+                className="mt-5 border-t border-bloom-border pt-5"
+              >
+                <input type="hidden" name="requestId" value={request.id} />
+
+                <label className="block">
+                  <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-bloom-muted">
+                    Final bouquet price (AED)
+                  </span>
+                  <input
+                    name="finalPrice"
+                    type="number"
+                    min="0.01"
+                    step="0.01"
+                    required
+                    defaultValue={
+                      request.finalPrice !== null
+                        ? Number(request.finalPrice)
+                        : Number(request.estimatedTotal)
+                    }
+                    className="mt-2 h-10 w-full border border-bloom-border px-3 text-xs outline-none focus:border-bloom-violet"
+                  />
+                </label>
+
+                <div className="mt-3 grid grid-cols-2 gap-3">
+                  <label>
+                    <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-bloom-muted">
+                      Lead min
+                    </span>
+                    <input
+                      name="leadTimeMinDays"
+                      type="number"
+                      min="1"
+                      max="60"
+                      required
+                      defaultValue={request.leadTimeMinDays ?? 3}
+                      className="mt-2 h-10 w-full border border-bloom-border px-3 text-xs outline-none focus:border-bloom-violet"
+                    />
+                  </label>
+                  <label>
+                    <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-bloom-muted">
+                      Lead max
+                    </span>
+                    <input
+                      name="leadTimeMaxDays"
+                      type="number"
+                      min="1"
+                      max="60"
+                      required
+                      defaultValue={request.leadTimeMaxDays ?? 5}
+                      className="mt-2 h-10 w-full border border-bloom-border px-3 text-xs outline-none focus:border-bloom-violet"
+                    />
+                  </label>
+                </div>
+
+                <button
+                  type="submit"
+                  className="mt-4 h-10 w-full bg-bloom-violet px-4 text-xs font-semibold text-white"
+                >
+                  {request.status === "AWAITING_PAYMENT"
+                    ? "Reissue payment quote"
+                    : "Finalize & send payment quote"}
+                </button>
+
+                <p className="mt-3 text-[10px] leading-4 text-bloom-muted">
+                  The payment quote is valid for 7 days. Delivery is added later
+                  from the customer&apos;s selected emirate.
+                </p>
+              </form>
+            ) : null}
+
+            {request.quoteExpiresAt ? (
+              <p className="mt-4 border-t border-bloom-border pt-4 text-[10px] text-bloom-muted">
+                Quote expires {formatDate(request.quoteExpiresAt)}
+              </p>
+            ) : null}
           </section>
         </aside>
       </div>

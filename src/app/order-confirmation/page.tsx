@@ -31,10 +31,14 @@ export default async function OrderConfirmationPage({
 
   const order = attempt.order;
   const paid = order.paymentStatus === "PAID";
+  const customBouquet = order.customBouquetRequest;
 
   return (
     <div className="min-h-screen bg-background">
-      <OrderConfirmationSync paid={paid} />
+      <OrderConfirmationSync
+        paid={paid}
+        clearCartOnPaid={!customBouquet}
+      />
 
       <header className="border-b border-bloom-border bg-white">
         <div className="mx-auto flex h-18 max-w-[1100px] items-center justify-between px-5 sm:px-8">
@@ -66,12 +70,18 @@ export default async function OrderConfirmationPage({
             {paid ? "Payment confirmed" : "Payment processing"}
           </p>
           <h1 className="mt-3 font-display text-4xl font-semibold tracking-[-0.045em] text-bloom-plum sm:text-5xl">
-            {paid ? "Your blooms are confirmed." : "We’re confirming your payment."}
+            {paid
+              ? customBouquet
+                ? "Your custom bouquet is confirmed."
+                : "Your blooms are confirmed."
+              : "We’re confirming your payment."}
           </h1>
           <p className="mx-auto mt-4 max-w-xl text-sm leading-6 text-bloom-muted">
             Order <strong className="text-bloom-plum">{order.orderNumber}</strong>
             {paid
-              ? " is confirmed and ready to move into preparation."
+              ? customBouquet
+                ? ` is confirmed. CRJ can now prepare custom bouquet ${customBouquet.referenceNumber} for production.`
+                : " is confirmed and ready to move into preparation."
               : " has returned from secure checkout. This page will refresh briefly while the verified payment webhook reaches us."}
           </p>
         </div>
@@ -125,11 +135,11 @@ export default async function OrderConfirmationPage({
 
         <div className="mt-8 flex flex-wrap justify-center gap-3">
           <Link
-            href="/account/orders"
+            href={customBouquet ? "/account/custom-bouquets" : "/account/orders"}
             className="inline-flex h-11 items-center gap-2 border border-bloom-border bg-white px-5 text-xs font-semibold text-bloom-plum"
           >
             <ShoppingBag className="size-3.5" />
-            View account orders
+            {customBouquet ? "Track custom bouquet" : "View account orders"}
           </Link>
           <Link
             href="/shop"

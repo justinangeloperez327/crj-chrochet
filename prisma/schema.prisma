@@ -92,6 +92,7 @@ enum NotificationType {
   ORDER_CONFIRMED
   PAYMENT_FAILED
   ORDER_CANCELLED
+  CUSTOM_BOUQUET_QUOTE_READY
 }
 
 enum MaterialUnit {
@@ -106,6 +107,8 @@ enum MaterialMovementType {
   OPENING
   RECEIPT
   ADJUSTMENT
+  RESERVATION
+  RELEASE
   CONSUMPTION
   RETURN
 }
@@ -114,6 +117,8 @@ enum CustomBouquetStatus {
   SUBMITTED
   REVIEWING
   APPROVED
+  AWAITING_PAYMENT
+  PAID
   IN_PRODUCTION
   READY
   COMPLETED
@@ -345,6 +350,7 @@ model Order {
   inventoryMovement InventoryMovement[]
   paymentAttempts  PaymentAttempt[]
   notifications    NotificationOutbox[]
+  customBouquetRequest CustomBouquetRequest?
   createdAt         DateTime          @default(now())
   updatedAt         DateTime          @updatedAt
 
@@ -385,6 +391,7 @@ model PaymentWebhookEvent {
 model NotificationOutbox {
   id        String             @id @default(cuid())
   orderId   String?
+  customBouquetRequestId String?
   toEmail   String
   type      NotificationType
   subject   String
@@ -394,11 +401,13 @@ model NotificationOutbox {
   lastError String?
   sentAt    DateTime?
   order     Order?             @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  customBouquetRequest CustomBouquetRequest? @relation(fields: [customBouquetRequestId], references: [id], onDelete: Cascade)
   createdAt DateTime           @default(now())
   updatedAt DateTime           @updatedAt
 
   @@index([status, createdAt])
   @@index([orderId])
+  @@index([customBouquetRequestId])
 }
 
 model OrderAddress {
@@ -458,6 +467,7 @@ model RawMaterial {
   colorName     String?
   unit          MaterialUnit
   stockOnHand   Decimal               @default(0) @db.Decimal(12, 3)
+  stockReserved Decimal               @default(0) @db.Decimal(12, 3)
   reorderLevel  Decimal               @default(0) @db.Decimal(12, 3)
   unitCost      Decimal?              @db.Decimal(12, 4)
   isActive      Boolean               @default(true)
@@ -570,14 +580,25 @@ model CustomBouquetRequest {
   totalStems       Int
   estimatedSubtotal Decimal            @db.Decimal(10, 2)
   estimatedTotal   Decimal             @db.Decimal(10, 2)
-  status           CustomBouquetStatus @default(SUBMITTED)
+  finalPrice        Decimal?            @db.Decimal(10, 2)
+  leadTimeMinDays   Int?
+  leadTimeMaxDays   Int?
+  quoteFinalizedAt  DateTime?
+  quoteExpiresAt    DateTime?
+  paymentToken      String?             @unique
+  orderId           String?             @unique
+  status            CustomBouquetStatus @default(SUBMITTED)
+  materialsReservedAt DateTime?
   materialsConsumedAt DateTime?
   materialMovements RawMaterialMovement[]
+  notifications      NotificationOutbox[]
   customer         Customer?           @relation(fields: [customerId], references: [id], onDelete: SetNull)
   wrapping         BouquetWrapOption   @relation(fields: [wrappingId], references: [id], onDelete: Restrict)
+  order             Order?              @relation(fields: [orderId], references: [id], onDelete: SetNull)
   createdAt        DateTime            @default(now())
   updatedAt        DateTime            @updatedAt
 
   @@index([customerId, createdAt])
   @@index([status, createdAt])
+  @@index([quoteExpiresAt])
 }

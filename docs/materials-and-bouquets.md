@@ -46,6 +46,8 @@ Movement types:
 - `OPENING`
 - `RECEIPT`
 - `ADJUSTMENT`
+- `RESERVATION`
+- `RELEASE`
 - `CONSUMPTION`
 - `RETURN`
 
@@ -55,7 +57,7 @@ The material admin is available at:
 /admin/materials
 ```
 
-Manual adjustments are deltas. The system rejects a change that would make stock negative.
+Manual adjustments are deltas. The system rejects a change that would make stock negative or reduce physical stock below material quantities already reserved for custom checkout.
 
 ## Product BOM
 
@@ -197,6 +199,10 @@ Reviewing
     ↓
 Approved
     ↓
+Awaiting Payment
+    ↓
+Paid
+    ↓
 In Production
     ↓
 Ready
@@ -208,7 +214,7 @@ A request can be declined during Submitted, Reviewing, or Approved.
 
 Invalid workflow jumps are rejected server-side.
 
-Moving an approved request to In Production consumes its frozen material plan exactly once and writes `CONSUMPTION` movements linked back to the custom request.
+Group 10 finalizes the approved commercial quote before payment. Starting Stripe Checkout reserves the frozen material plan. Verified payment retains that reservation, and moving a paid request to In Production consumes it exactly once. Cancelled or expired payment releases the reservation.
 
 ## Customer tracking
 
@@ -253,13 +259,10 @@ npm run db:seed
 
 Review and commit the generated migration before production deployment.
 
-## Deliberate next boundary
+## Commerce continuation
 
-Custom bouquet requests are not automatically converted into Stripe orders yet because an approved custom design still needs confirmed fulfillment/delivery details.
+Group 10 closes the original payment boundary.
 
-A later workflow can convert an approved request into a payable custom order after CRJ confirms:
+Approved custom bouquets can now be finalized with a price and lead time, sent to the customer through a secure payment link, converted into normal `Order` records, and paid through the same Stripe/webhook infrastructure as catalog orders.
 
-- final price;
-- production lead time;
-- delivery/pickup method;
-- recipient delivery details.
+See `docs/custom-bouquet-commerce.md`.

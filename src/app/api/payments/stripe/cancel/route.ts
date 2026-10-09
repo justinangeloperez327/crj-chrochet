@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 
+import { requireDb } from "@/lib/db";
 import { expireStripeCheckout } from "@/lib/orders/order-lifecycle";
 import {
   getStripe,
   verifyCheckoutReturn,
 } from "@/lib/payments/stripe";
-import { requireDb } from "@/lib/db";
 
 export const runtime = "nodejs";
 
@@ -18,12 +18,23 @@ export async function GET(request: Request) {
     return NextResponse.redirect(new URL("/checkout?cancelled=1", request.url));
   }
 
+  let customPaymentToken: string | null = null;
+
   try {
     if (!verifyCheckoutReturn(orderId, signature)) {
-      return NextResponse.json({ error: "Invalid checkout return." }, { status: 403 });
+      return NextResponse.json(
+        { error: "Invalid checkout return." },
+        { status: 403 },
+      );
     }
 
     const db = requireDb();
+    const customBouquet = await db.customBouquetRequest.findUnique({
+      where: { orderId },
+      select: { paymentToken: true },
+    });
+    customPaymentToken = customBouquet?.paymentToken ?? null;
+
     const attempt = await db.paymentAttempt.findFirst({
       where: {
         orderId,
@@ -57,9 +68,25 @@ export async function GET(request: Request) {
       }
     }
 
-    return NextResponse.redirect(new URL("/checkout?cancelled=1", request.url));
+    return cancellationRedirect(request.url, customPaymentToken);
   } catch (error) {
     console.error("Checkout cancellation failed.", error);
-    return NextResponse.redirect(new URL("/checkout?cancelled=1", request.url));
+    return cancellationRedirect(request.url, customPaymentToken);
   }
+}
+
+function cancellationRedirect(
+  requestUrl: string,
+  customPaymentToken: string | null,
+) {
+  if (customPaymentToken) {
+    return NextResponse.redirect(
+      new URL(
+        `/custom-bouquets/pay/${encodeURIComponent(customPaymentToken)}?cancelled=1`,
+        requestUrl,
+      ),
+    );
+  }
+
+  return NextResponse.redirect(new URL("/checkout?cancelled=1", requestUrl));
 }

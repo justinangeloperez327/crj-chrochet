@@ -1,8 +1,7 @@
-import { randomUUID } from "node:crypto";
-
 import type { Prisma } from "@/generated/prisma/client";
 import { getDeliveryRate } from "@/lib/delivery/delivery-service";
 import { requireDb } from "@/lib/db";
+import { createOrderNumber } from "@/lib/orders/order-number";
 
 export type CheckoutLineInput = {
   productId: string;
@@ -520,16 +519,6 @@ function parseVariantLabel(value?: string) {
     sizeName: parts && parts.length >= 3 ? parts[1] : undefined,
     stems: stemsMatch ? Number(stemsMatch[1]) : undefined,
   };
-}
-
-function createOrderNumber() {
-  const date = new Date();
-  const year = date.getUTCFullYear();
-  const month = String(date.getUTCMonth() + 1).padStart(2, "0");
-  const day = String(date.getUTCDate()).padStart(2, "0");
-  const suffix = randomUUID().replaceAll("-", "").slice(0, 6).toUpperCase();
-
-  return `CRJ-${year}${month}${day}-${suffix}`;
 }
 
 function roundMoney(value: number) {

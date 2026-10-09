@@ -8,6 +8,16 @@ type OrderNotificationPayload = {
   currency: string;
 };
 
+type CustomBouquetQuotePayload = {
+  referenceNumber: string;
+  finalPrice: number;
+  currency: string;
+  leadTimeMinDays: number;
+  leadTimeMaxDays: number;
+  paymentUrl: string;
+  quoteExpiresAt: string;
+};
+
 export async function processNotificationOutbox(limit = 20) {
   const db = requireDb();
   const apiKey = process.env.RESEND_API_KEY;
@@ -31,13 +41,14 @@ export async function processNotificationOutbox(limit = 20) {
 
   for (const notification of notifications) {
     try {
-      const payload = notification.payload as unknown as OrderNotificationPayload;
-
       const result = await resend.emails.send({
         from,
         to: notification.toEmail,
         subject: notification.subject,
-        html: renderEmail(notification.type, payload),
+        html: renderEmail(
+          notification.type,
+          notification.payload as unknown,
+        ),
       });
 
       if (result.error) {
@@ -76,10 +87,26 @@ export async function processNotificationOutbox(limit = 20) {
   };
 }
 
-function renderEmail(
-  type: string,
-  payload: OrderNotificationPayload,
-) {
+function renderEmail(type: string, payload: unknown) {
+  if (type === "CUSTOM_BOUQUET_QUOTE_READY") {
+    const quote = payload as CustomBouquetQuotePayload;
+
+    return `
+      <div style="font-family:Arial,sans-serif;max-width:560px;margin:auto;color:#321A32">
+        <p style="font-size:12px;color:#E85D9E;text-transform:uppercase;letter-spacing:.12em">Handmade Blooms by CRJ</p>
+        <h1 style="font-size:28px;margin:16px 0">Your custom bouquet is ready for payment</h1>
+        <p>Reference <strong>${escapeHtml(quote.referenceNumber)}</strong></p>
+        <p>Final bouquet price: <strong>${escapeHtml(quote.currency)} ${quote.finalPrice.toFixed(2)}</strong> before delivery.</p>
+        <p>Production lead time: <strong>${quote.leadTimeMinDays}–${quote.leadTimeMaxDays} days</strong> after confirmed payment.</p>
+        <p style="margin:28px 0">
+          <a href="${escapeHtml(quote.paymentUrl)}" style="background:#321A32;color:white;text-decoration:none;padding:12px 18px;display:inline-block;font-weight:600">Complete delivery & payment</a>
+        </p>
+        <p style="color:#756471;line-height:1.6">This quote expires on ${escapeHtml(formatEmailDate(quote.quoteExpiresAt))}. Delivery is calculated from the selected emirate before Stripe Checkout opens.</p>
+      </div>
+    `;
+  }
+
+  const order = payload as OrderNotificationPayload;
   const title =
     type === "ORDER_CONFIRMED"
       ? "Your Handmade Blooms order is confirmed"
@@ -91,11 +118,23 @@ function renderEmail(
     <div style="font-family:Arial,sans-serif;max-width:560px;margin:auto;color:#321A32">
       <p style="font-size:12px;color:#E85D9E;text-transform:uppercase;letter-spacing:.12em">Handmade Blooms by CRJ</p>
       <h1 style="font-size:28px;margin:16px 0">${escapeHtml(title)}</h1>
-      <p>Order <strong>${escapeHtml(payload.orderNumber)}</strong></p>
-      <p>Total: <strong>${escapeHtml(payload.currency)} ${payload.total.toFixed(2)}</strong></p>
+      <p>Order <strong>${escapeHtml(order.orderNumber)}</strong></p>
+      <p>Total: <strong>${escapeHtml(order.currency)} ${order.total.toFixed(2)}</strong></p>
       <p style="color:#756471;line-height:1.6">We’ll continue updating your order as it moves through preparation and fulfillment.</p>
     </div>
   `;
+}
+
+function formatEmailDate(value: string) {
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) return value;
+
+  return new Intl.DateTimeFormat("en-AE", {
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+  }).format(date);
 }
 
 function escapeHtml(value: string) {

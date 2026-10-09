@@ -44,15 +44,32 @@ export default async function AccountCustomBouquetsPage() {
                 <StatusBadge value={request.status} />
               </div>
 
-              <div className="mt-5 flex items-end justify-between border-t border-bloom-border pt-4">
+              <div className="mt-5 flex flex-wrap items-end justify-between gap-4 border-t border-bloom-border pt-4">
                 <div>
                   <p className="text-[10px] uppercase tracking-[0.08em] text-bloom-muted">
-                    Estimate
+                    {request.finalPrice !== null ? "Approved price" : "Estimate"}
                   </p>
                   <p className="mt-1 text-xl font-semibold text-bloom-plum">
-                    AED {Number(request.estimatedTotal)}
+                    AED {Number(request.finalPrice ?? request.estimatedTotal)}
                   </p>
+                  {request.order ? (
+                    <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-bloom-violet">
+                      Payment {request.order.paymentStatus.replaceAll("_", " ").toLowerCase()}
+                    </p>
+                  ) : null}
                 </div>
+
+                {request.status === "AWAITING_PAYMENT" &&
+                request.paymentToken &&
+                request.quoteExpiresAt &&
+                request.quoteExpiresAt > new Date() ? (
+                  <Link
+                    href={`/custom-bouquets/pay/${request.paymentToken}`}
+                    className="inline-flex h-10 items-center bg-bloom-violet px-4 text-xs font-semibold text-white"
+                  >
+                    Pay approved quote
+                  </Link>
+                ) : null}
               </div>
             </article>
           ))

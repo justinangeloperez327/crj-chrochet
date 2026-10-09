@@ -1,14 +1,18 @@
 "use server";
 
+import { randomBytes } from "node:crypto";
+
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { requireAdmin } from "@/lib/auth/guards";
 import { requireDb } from "@/lib/db";
 import {
-  consumeCustomBouquetMaterials,
+  consumeCustomBouquetMaterialsTx,
   consumeOrderItemMaterials,
+  releaseCustomBouquetForOrder,
 } from "@/lib/materials/material-service";
+import { processNotificationOutbox } from "@/lib/notifications/notification-service";
 
 const PRODUCT_STATUSES = ["DRAFT", "ACTIVE", "ARCHIVED"] as const;
 const FULFILLMENT_MODES = ["READY_STOCK", "MADE_TO_ORDER", "BOTH"] as const;
@@ -284,6 +288,12 @@ export async function updateOrderWorkflow(formData: FormData) {
         items: {
           select: { id: true },
         },
+        customBouquetRequest: {
+          select: {
+            id: true,
+            status: true,
+          },
+        },
       },
     });
 
@@ -316,9 +326,63 @@ export async function updateOrderWorkflow(formData: FormData) {
       );
     }
 
+    if (
+      order.customBouquetRequest &&
+      becomingPaid &&
+      ["IN_PRODUCTION", "QUALITY_CHECK", "READY", "FULFILLED"].includes(
+        status,
+      )
+    ) {
+      throw new Error(
+        "Confirm custom bouquet payment first, then start production in a separate step.",
+      );
+    }
+
+    if (order.customBouquetRequest) {
+      const currentCustomStatus = order.customBouquetRequest.status;
+
+      if (
+        (status === "IN_PRODUCTION" || status === "QUALITY_CHECK") &&
+        !["PAID", "IN_PRODUCTION"].includes(currentCustomStatus)
+      ) {
+        throw new Error(
+          "Custom bouquet must be paid before production starts.",
+        );
+      }
+
+      if (
+        status === "READY" &&
+        !["IN_PRODUCTION", "READY"].includes(currentCustomStatus)
+      ) {
+        throw new Error(
+          "Custom bouquet must enter production before it can be marked ready.",
+        );
+      }
+
+      if (
+        status === "FULFILLED" &&
+        !["READY", "COMPLETED"].includes(currentCustomStatus)
+      ) {
+        throw new Error(
+          "Custom bouquet must be ready before it can be completed.",
+        );
+      }
+    }
+
     const outstandingReservations = getOutstandingReservations(
       order.inventoryMovement,
     );
+
+    if (
+      status === "CANCELLED" &&
+      order.status !== "CANCELLED" &&
+      order.customBouquetRequest &&
+      order.paymentStatus === "PAID"
+    ) {
+      throw new Error(
+        "Paid custom bouquet orders require a refund workflow before cancellation.",
+      );
+    }
 
     if (status === "CANCELLED" && order.status !== "CANCELLED") {
       for (const [variantId, quantity] of outstandingReservations) {
@@ -341,6 +405,12 @@ export async function updateOrderWorkflow(formData: FormData) {
           },
         });
       }
+
+      await releaseCustomBouquetForOrder(
+        tx,
+        orderId,
+        `Custom bouquet reservation released after cancelling ${order.orderNumber}`,
+      );
     }
 
     if (
@@ -350,6 +420,13 @@ export async function updateOrderWorkflow(formData: FormData) {
     ) {
       for (const item of order.items) {
         await consumeOrderItemMaterials(tx, item.id);
+      }
+
+      if (order.customBouquetRequest) {
+        await consumeCustomBouquetMaterialsTx(
+          tx,
+          order.customBouquetRequest.id,
+        );
       }
     }
 
@@ -406,6 +483,36 @@ export async function updateOrderWorkflow(formData: FormData) {
           : order.reservationExpiresAt,
       },
     });
+
+    if (order.customBouquetRequest) {
+      if (becomingPaid) {
+        await tx.customBouquetRequest.updateMany({
+          where: {
+            id: order.customBouquetRequest.id,
+            status: "AWAITING_PAYMENT",
+          },
+          data: {
+            status: "PAID",
+          },
+        });
+      }
+
+      const customStatus =
+        status === "IN_PRODUCTION" || status === "QUALITY_CHECK"
+          ? "IN_PRODUCTION"
+          : status === "READY"
+            ? "READY"
+            : status === "FULFILLED"
+              ? "COMPLETED"
+              : null;
+
+      if (customStatus) {
+        await tx.customBouquetRequest.update({
+          where: { id: order.customBouquetRequest.id },
+          data: { status: customStatus },
+        });
+      }
+    }
 
     if (becomingPaid && order.discountId) {
       await tx.discount.update({
@@ -608,9 +715,16 @@ export async function adjustRawMaterialStock(formData: FormData) {
     if (!material) throw new Error("Raw material not found.");
 
     const next = Number(material.stockOnHand) + delta;
+    const reserved = Number(material.stockReserved);
 
     if (next < 0) {
       throw new Error("Raw-material stock cannot be negative.");
+    }
+
+    if (next < reserved) {
+      throw new Error(
+        "Raw-material stock cannot be reduced below the quantity already reserved.",
+      );
     }
 
     await tx.rawMaterial.update({
@@ -675,6 +789,115 @@ export async function removeVariantMaterial(formData: FormData) {
   revalidatePath(`/admin/products/${productId}/bom`);
 }
 
+export async function finalizeCustomBouquetQuote(formData: FormData) {
+  await requireAdmin();
+  const db = requireDb();
+  const requestId = required(formData, "requestId");
+  const finalPrice = money(formData, "finalPrice");
+  const leadTimeMinDays = integer(formData, "leadTimeMinDays");
+  const leadTimeMaxDays = integer(formData, "leadTimeMaxDays");
+
+  if (finalPrice <= 0) {
+    throw new Error("Final custom bouquet price must be greater than zero.");
+  }
+
+  if (
+    leadTimeMinDays < 1 ||
+    leadTimeMaxDays < leadTimeMinDays ||
+    leadTimeMaxDays > 60
+  ) {
+    throw new Error("Enter a valid production lead-time range.");
+  }
+
+  const appUrl = process.env.APP_URL?.replace(/\/$/, "");
+
+  if (!appUrl) {
+    throw new Error("APP_URL is required to issue a custom bouquet quote.");
+  }
+
+  const paymentToken = randomBytes(32).toString("base64url");
+  const now = new Date();
+  const quoteExpiresAt = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+
+  const request = await db.$transaction(async (tx) => {
+    const current = await tx.customBouquetRequest.findUnique({
+      where: { id: requestId },
+      include: {
+        order: {
+          select: {
+            id: true,
+            paymentStatus: true,
+          },
+        },
+      },
+    });
+
+    if (!current) throw new Error("Custom bouquet request not found.");
+
+    if (
+      current.status !== "APPROVED" &&
+      !(
+        current.status === "AWAITING_PAYMENT" &&
+        current.orderId === null
+      )
+    ) {
+      throw new Error(
+        "Only approved or expired unpaid custom bouquets can be quoted.",
+      );
+    }
+
+    if (current.order?.paymentStatus === "PAID") {
+      throw new Error("Paid custom bouquet quotes cannot be changed.");
+    }
+
+    const updated = await tx.customBouquetRequest.update({
+      where: { id: requestId },
+      data: {
+        finalPrice,
+        leadTimeMinDays,
+        leadTimeMaxDays,
+        quoteFinalizedAt: now,
+        quoteExpiresAt,
+        paymentToken,
+        status: "AWAITING_PAYMENT",
+      },
+    });
+
+    await tx.notificationOutbox.deleteMany({
+      where: {
+        customBouquetRequestId: updated.id,
+        type: "CUSTOM_BOUQUET_QUOTE_READY",
+        status: { in: ["PENDING", "FAILED"] },
+      },
+    });
+
+    await tx.notificationOutbox.create({
+      data: {
+        customBouquetRequestId: updated.id,
+        toEmail: updated.email,
+        type: "CUSTOM_BOUQUET_QUOTE_READY",
+        subject: `Your custom bouquet ${updated.referenceNumber} is ready`,
+        payload: {
+          referenceNumber: updated.referenceNumber,
+          finalPrice,
+          currency: "AED",
+          leadTimeMinDays,
+          leadTimeMaxDays,
+          paymentUrl: `${appUrl}/custom-bouquets/pay/${paymentToken}`,
+          quoteExpiresAt: quoteExpiresAt.toISOString(),
+        },
+      },
+    });
+
+    return updated;
+  });
+
+  await processNotificationOutbox(5).catch(() => undefined);
+
+  revalidatePath("/admin/custom-bouquets");
+  revalidatePath(`/admin/custom-bouquets/${request.id}`);
+}
+
 export async function updateCustomBouquetStatus(formData: FormData) {
   await requireAdmin();
   const db = requireDb();
@@ -685,6 +908,8 @@ export async function updateCustomBouquetStatus(formData: FormData) {
       "SUBMITTED",
       "REVIEWING",
       "APPROVED",
+      "AWAITING_PAYMENT",
+      "PAID",
       "IN_PRODUCTION",
       "READY",
       "COMPLETED",
@@ -693,32 +918,67 @@ export async function updateCustomBouquetStatus(formData: FormData) {
     "custom bouquet status",
   );
 
-  const request = await db.customBouquetRequest.findUnique({
-    where: { id: requestId },
-    select: {
-      status: true,
-      materialsConsumedAt: true,
-    },
-  });
+  await db.$transaction(async (tx) => {
+    const request = await tx.customBouquetRequest.findUnique({
+      where: { id: requestId },
+      include: {
+        order: {
+          select: {
+            paymentStatus: true,
+          },
+        },
+      },
+    });
 
-  if (!request) throw new Error("Custom bouquet request not found.");
+    if (!request) throw new Error("Custom bouquet request not found.");
 
-  if (!isValidCustomBouquetTransition(request.status, status)) {
-    throw new Error(
-      `Invalid custom bouquet transition from ${request.status} to ${status}.`,
-    );
-  }
+    if (!isValidCustomBouquetTransition(request.status, status)) {
+      throw new Error(
+        `Invalid custom bouquet transition from ${request.status} to ${status}.`,
+      );
+    }
 
-  if (
-    ["IN_PRODUCTION", "READY", "COMPLETED"].includes(status) &&
-    !request.materialsConsumedAt
-  ) {
-    await consumeCustomBouquetMaterials(requestId);
-  }
+    if (status === "IN_PRODUCTION") {
+      if (request.order?.paymentStatus !== "PAID") {
+        throw new Error(
+          "Custom bouquet must be paid before production can begin.",
+        );
+      }
 
-  await db.customBouquetRequest.update({
-    where: { id: requestId },
-    data: { status },
+      await consumeCustomBouquetMaterialsTx(tx, requestId);
+    }
+
+    await tx.customBouquetRequest.update({
+      where: { id: requestId },
+      data: { status },
+    });
+
+    if (request.order) {
+      const orderState =
+        status === "IN_PRODUCTION"
+          ? {
+              status: "IN_PRODUCTION" as const,
+              fulfillmentStatus: "IN_PRODUCTION" as const,
+            }
+          : status === "READY"
+            ? {
+                status: "READY" as const,
+                fulfillmentStatus: "READY" as const,
+              }
+            : status === "COMPLETED"
+              ? {
+                  status: "FULFILLED" as const,
+                  fulfillmentStatus: "DELIVERED" as const,
+                }
+              : null;
+
+      if (orderState) {
+        await tx.order.update({
+          where: { id: request.order.id },
+          data: orderState,
+        });
+      }
+    }
   });
 
   revalidatePath("/admin/custom-bouquets");
@@ -750,7 +1010,9 @@ function isValidCustomBouquetTransition(
   const transitions: Record<string, string[]> = {
     SUBMITTED: ["REVIEWING", "DECLINED"],
     REVIEWING: ["APPROVED", "DECLINED"],
-    APPROVED: ["IN_PRODUCTION", "DECLINED"],
+    APPROVED: ["DECLINED"],
+    AWAITING_PAYMENT: [],
+    PAID: ["IN_PRODUCTION"],
     IN_PRODUCTION: ["READY"],
     READY: ["COMPLETED"],
     COMPLETED: [],
