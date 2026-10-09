@@ -27,6 +27,8 @@ export async function getAdminDashboardData() {
             "IN_PRODUCTION",
             "QUALITY_CHECK",
             "READY",
+            "SHIPPED",
+            "OUT_FOR_DELIVERY",
           ],
         },
       },
@@ -34,10 +36,15 @@ export async function getAdminDashboardData() {
     db.customer.count(),
     db.order.findMany({
       where: {
-        paymentStatus: "PAID",
+        paymentStatus: {
+          in: ["PAID", "PARTIALLY_REFUNDED", "REFUNDED"],
+        },
         createdAt: { gte: thirtyDaysAgo },
       },
-      select: { total: true },
+      select: {
+        total: true,
+        refundedAmount: true,
+      },
     }),
     db.order.findMany({
       take: 8,
@@ -76,7 +83,12 @@ export async function getAdminDashboardData() {
       pendingOrders,
       customers,
       revenue30Days: paidOrders.reduce(
-        (sum, order) => sum + Number(order.total),
+        (sum, order) =>
+          sum +
+          Math.max(
+            0,
+            Number(order.total) - Number(order.refundedAmount),
+          ),
         0,
       ),
       lowStockCount: lowStock.length,
@@ -204,6 +216,27 @@ export async function getAdminOrder(id: string) {
       },
       items: {
         orderBy: { createdAt: "asc" },
+        include: {
+          variant: {
+            select: {
+              id: true,
+              sku: true,
+              fulfillmentMode: true,
+              trackInventory: true,
+            },
+          },
+        },
+      },
+      refunds: {
+        orderBy: { createdAt: "desc" },
+        include: {
+          initiatedBy: {
+            select: { name: true, email: true },
+          },
+        },
+      },
+      paymentAttempts: {
+        orderBy: { createdAt: "desc" },
       },
       inventoryMovement: {
         orderBy: { createdAt: "asc" },

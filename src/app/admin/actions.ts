@@ -13,6 +13,8 @@ import {
   releaseCustomBouquetForOrder,
 } from "@/lib/materials/material-service";
 import { processNotificationOutbox } from "@/lib/notifications/notification-service";
+import { updateDeliveryFulfillment } from "@/lib/orders/fulfillment-service";
+import { createStripeRefund } from "@/lib/payments/refund-service";
 
 const PRODUCT_STATUSES = ["DRAFT", "ACTIVE", "ARCHIVED"] as const;
 const FULFILLMENT_MODES = ["READY_STOCK", "MADE_TO_ORDER", "BOTH"] as const;
@@ -303,8 +305,40 @@ export async function updateOrderWorkflow(formData: FormData) {
       throw new Error("Cancelled orders cannot be reopened.");
     }
 
-    if (order.status === "FULFILLED" && requestedStatus !== "FULFILLED") {
-      throw new Error("Fulfilled orders cannot be moved backwards.");
+    if (
+      ["SHIPPED", "OUT_FOR_DELIVERY", "FULFILLED"].includes(order.status)
+    ) {
+      throw new Error(
+        "Use the delivery workflow for shipped or delivered orders.",
+      );
+    }
+
+    if (requestedStatus === "FULFILLED") {
+      throw new Error(
+        "Use the delivery workflow to mark an order delivered.",
+      );
+    }
+
+    if (
+      (["REFUNDED", "PARTIALLY_REFUNDED"].includes(
+        order.paymentStatus,
+      ) &&
+        paymentStatus !== order.paymentStatus) ||
+      (["REFUNDED", "PARTIALLY_REFUNDED"].includes(paymentStatus) &&
+        paymentStatus !== order.paymentStatus)
+    ) {
+      throw new Error(
+        "Refund payment states are managed by the Stripe refund workflow.",
+      );
+    }
+
+    if (
+      order.paymentStatus === "PAID" &&
+      paymentStatus !== "PAID"
+    ) {
+      throw new Error(
+        "A paid order cannot be downgraded manually. Use the refund workflow.",
+      );
     }
 
     const becomingPaid =
@@ -319,7 +353,8 @@ export async function updateOrderWorkflow(formData: FormData) {
       ["IN_PRODUCTION", "QUALITY_CHECK", "READY", "FULFILLED"].includes(
         status,
       ) &&
-      paymentStatus !== "PAID"
+      paymentStatus !== "PAID" &&
+      paymentStatus !== "PARTIALLY_REFUNDED"
     ) {
       throw new Error(
         "An order must be paid before production or fulfillment can begin.",
@@ -376,11 +411,22 @@ export async function updateOrderWorkflow(formData: FormData) {
     if (
       status === "CANCELLED" &&
       order.status !== "CANCELLED" &&
-      order.customBouquetRequest &&
-      order.paymentStatus === "PAID"
+      ["PAID", "PARTIALLY_REFUNDED"].includes(order.paymentStatus)
     ) {
       throw new Error(
-        "Paid custom bouquet orders require a refund workflow before cancellation.",
+        "Paid orders must go through the refund workflow before cancellation.",
+      );
+    }
+
+    if (
+      status === "CANCELLED" &&
+      order.status !== "CANCELLED" &&
+      order.paymentStatus === "REFUNDED" &&
+      ["IN_PRODUCTION", "QUALITY_CHECK", "READY"].includes(order.status) &&
+      formData.get("acknowledgeProductionLoss") !== "on"
+    ) {
+      throw new Error(
+        "Production already started. Confirm that consumed materials will not be restored automatically.",
       );
     }
 
@@ -411,6 +457,28 @@ export async function updateOrderWorkflow(formData: FormData) {
         orderId,
         `Custom bouquet reservation released after cancelling ${order.orderNumber}`,
       );
+
+      if (order.customBouquetRequest) {
+        await tx.customBouquetRequest.update({
+          where: { id: order.customBouquetRequest.id },
+          data: { status: "CANCELLED" },
+        });
+      }
+
+      await tx.notificationOutbox.create({
+        data: {
+          orderId,
+          toEmail: order.customerEmail,
+          type: "ORDER_CANCELLED",
+          subject: `Order ${order.orderNumber} cancelled`,
+          payload: {
+            orderNumber: order.orderNumber,
+            currency: order.currency,
+            total: Number(order.total),
+            reason: "Cancelled before payment/production",
+          },
+        },
+      });
     }
 
     if (
@@ -538,6 +606,8 @@ export async function updateOrderWorkflow(formData: FormData) {
     }
   });
 
+  await processNotificationOutbox(5).catch(() => undefined);
+
   revalidatePath(`/admin/orders/${orderId}`);
   revalidatePath("/admin/orders");
   revalidatePath("/admin/inventory");
@@ -649,6 +719,123 @@ function slugify(value: string) {
     .replace(/^-+|-+$/g, "");
 }
 
+
+export async function refundOrder(formData: FormData) {
+  const admin = await requireAdmin();
+  const orderId = required(formData, "orderId");
+  const amount = money(formData, "amount");
+  const reason = required(formData, "reason");
+  const note = optional(formData, "note");
+
+  await createStripeRefund({
+    orderId,
+    amount,
+    reason,
+    note,
+    initiatedByUserId: admin.id,
+    cancelOrder: formData.get("cancelOrder") === "on",
+    acknowledgeProductionLoss:
+      formData.get("acknowledgeProductionLoss") === "on",
+  });
+
+  revalidatePath(`/admin/orders/${orderId}`);
+  revalidatePath("/admin/orders");
+  revalidatePath("/admin");
+}
+
+export async function updateOrderDelivery(formData: FormData) {
+  await requireAdmin();
+  const orderId = required(formData, "orderId");
+  const status = enumValue(
+    required(formData, "deliveryStatus"),
+    ["SHIPPED", "OUT_FOR_DELIVERY", "DELIVERED"] as const,
+    "delivery status",
+  );
+
+  await updateDeliveryFulfillment({
+    orderId,
+    status,
+    carrier: optional(formData, "carrier"),
+    trackingNumber: optional(formData, "trackingNumber"),
+  });
+
+  revalidatePath(`/admin/orders/${orderId}`);
+  revalidatePath("/admin/orders");
+  revalidatePath("/admin");
+}
+
+export async function returnOrderItemStock(formData: FormData) {
+  await requireAdmin();
+  const db = requireDb();
+  const itemId = required(formData, "itemId");
+  const quantity = integer(formData, "quantity");
+  const note =
+    optional(formData, "note") || "Customer return received into stock";
+
+  if (quantity <= 0) {
+    throw new Error("Return quantity must be greater than zero.");
+  }
+
+  const orderId = await db.$transaction(async (tx) => {
+    const item = await tx.orderItem.findUnique({
+      where: { id: itemId },
+      include: {
+        order: true,
+        variant: true,
+      },
+    });
+
+    if (!item) throw new Error("Order item not found.");
+    if (item.order.fulfillmentStatus !== "DELIVERED") {
+      throw new Error(
+        "Finished stock can only be returned after the order is delivered.",
+      );
+    }
+    if (
+      !item.variant ||
+      !item.variant.trackInventory ||
+      !["READY_STOCK", "BOTH"].includes(item.variant.fulfillmentMode)
+    ) {
+      throw new Error(
+        "This line is not eligible for finished-stock return.",
+      );
+    }
+
+    const remaining = item.quantity - item.returnedQuantity;
+    if (quantity > remaining) {
+      throw new Error(
+        `Return quantity exceeds the remaining returnable quantity of ${remaining}.`,
+      );
+    }
+
+    await tx.productVariant.update({
+      where: { id: item.variant.id },
+      data: { stockOnHand: { increment: quantity } },
+    });
+
+    await tx.orderItem.update({
+      where: { id: item.id },
+      data: { returnedQuantity: { increment: quantity } },
+    });
+
+    await tx.inventoryMovement.create({
+      data: {
+        variantId: item.variant.id,
+        orderId: item.orderId,
+        type: "RETURN",
+        quantity,
+        note,
+      },
+    });
+
+    return item.orderId;
+  });
+
+  revalidatePath(`/admin/orders/${orderId}`);
+  revalidatePath("/admin/inventory");
+  revalidatePath("/admin");
+  revalidateStorefront();
+}
 
 export async function createRawMaterial(formData: FormData) {
   await requireAdmin();
@@ -939,7 +1126,10 @@ export async function updateCustomBouquetStatus(formData: FormData) {
     }
 
     if (status === "IN_PRODUCTION") {
-      if (request.order?.paymentStatus !== "PAID") {
+      if (
+        request.order?.paymentStatus !== "PAID" &&
+        request.order?.paymentStatus !== "PARTIALLY_REFUNDED"
+      ) {
         throw new Error(
           "Custom bouquet must be paid before production can begin.",
         );

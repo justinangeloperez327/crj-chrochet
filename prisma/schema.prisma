@@ -37,6 +37,8 @@ enum OrderStatus {
   IN_PRODUCTION
   QUALITY_CHECK
   READY
+  SHIPPED
+  OUT_FOR_DELIVERY
   FULFILLED
   CANCELLED
 }
@@ -55,6 +57,7 @@ enum FulfillmentStatus {
   IN_PRODUCTION
   READY
   SHIPPED
+  OUT_FOR_DELIVERY
   DELIVERED
   CANCELLED
 }
@@ -77,9 +80,18 @@ enum PaymentAttemptStatus {
   CREATED
   PENDING
   PAID
+  PARTIALLY_REFUNDED
   FAILED
   EXPIRED
   REFUNDED
+}
+
+enum RefundStatus {
+  PENDING
+  REQUIRES_ACTION
+  SUCCEEDED
+  FAILED
+  CANCELED
 }
 
 enum NotificationStatus {
@@ -92,6 +104,12 @@ enum NotificationType {
   ORDER_CONFIRMED
   PAYMENT_FAILED
   ORDER_CANCELLED
+  ORDER_REFUND_STARTED
+  ORDER_PARTIALLY_REFUNDED
+  ORDER_REFUNDED
+  ORDER_REFUND_FAILED
+  ORDER_SHIPPED
+  ORDER_DELIVERED
   CUSTOM_BOUQUET_QUOTE_READY
 }
 
@@ -122,6 +140,7 @@ enum CustomBouquetStatus {
   IN_PRODUCTION
   READY
   COMPLETED
+  CANCELLED
   DECLINED
 }
 
@@ -251,6 +270,7 @@ model User {
   customer     Customer?
   sessions     AuthSession[]
   wishlist     WishlistItem[]
+  refundsInitiated Refund[] @relation("RefundInitiatedBy")
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
 
@@ -343,12 +363,21 @@ model Order {
   orderNote         String?
   reservationExpiresAt DateTime?
   paidAt            DateTime?
+  refundedAmount    Decimal           @default(0) @db.Decimal(10, 2)
+  cancelledAt       DateTime?
+  cancellationReason String?
+  carrier           String?
+  trackingNumber    String?
+  shippedAt         DateTime?
+  outForDeliveryAt  DateTime?
+  deliveredAt       DateTime?
   customer          Customer?         @relation(fields: [customerId], references: [id], onDelete: SetNull)
   discount          Discount?         @relation(fields: [discountId], references: [id], onDelete: SetNull)
   shippingAddress   OrderAddress?
   items             OrderItem[]
   inventoryMovement InventoryMovement[]
   paymentAttempts  PaymentAttempt[]
+  refunds           Refund[]
   notifications    NotificationOutbox[]
   customBouquetRequest CustomBouquetRequest?
   createdAt         DateTime          @default(now())
@@ -372,11 +401,41 @@ model PaymentAttempt {
   checkoutUrl String?
   expiresAt   DateTime?
   paidAt      DateTime?
+  paymentIntentId String?              @unique
   order       Order                @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  refunds     Refund[]
   createdAt   DateTime             @default(now())
   updatedAt   DateTime             @updatedAt
 
   @@index([orderId, status])
+}
+
+model Refund {
+  id                String        @id @default(cuid())
+  orderId           String
+  paymentAttemptId  String?
+  initiatedByUserId String?
+  provider          PaymentProvider @default(STRIPE)
+  externalId        String?       @unique
+  amount            Decimal       @db.Decimal(10, 2)
+  currency          String        @default("AED")
+  status            RefundStatus  @default(PENDING)
+  reason            String
+  note              String?
+  cancelOrder       Boolean       @default(false)
+  productionLossAccepted Boolean  @default(false)
+  errorMessage      String?
+  startedNotifiedAt DateTime?
+  completedAt       DateTime?
+  order             Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  paymentAttempt    PaymentAttempt? @relation(fields: [paymentAttemptId], references: [id], onDelete: SetNull)
+  initiatedBy       User?         @relation("RefundInitiatedBy", fields: [initiatedByUserId], references: [id], onDelete: SetNull)
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  @@index([orderId, createdAt])
+  @@index([paymentAttemptId])
+  @@index([status, createdAt])
 }
 
 model PaymentWebhookEvent {
@@ -435,6 +494,7 @@ model OrderItem {
   unitPrice   Decimal         @db.Decimal(10, 2)
   quantity    Int
   lineTotal   Decimal         @db.Decimal(10, 2)
+  returnedQuantity Int         @default(0)
   materialsConsumedAt DateTime?
   order       Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
   product     Product?        @relation(fields: [productId], references: [id], onDelete: SetNull)

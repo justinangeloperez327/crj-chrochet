@@ -6,6 +6,11 @@ type OrderNotificationPayload = {
   orderNumber: string;
   total: number;
   currency: string;
+  refundAmount?: number;
+  refundedTotal?: number;
+  reason?: string;
+  carrier?: string | null;
+  trackingNumber?: string | null;
 };
 
 type CustomBouquetQuotePayload = {
@@ -107,20 +112,76 @@ function renderEmail(type: string, payload: unknown) {
   }
 
   const order = payload as OrderNotificationPayload;
-  const title =
-    type === "ORDER_CONFIRMED"
-      ? "Your Handmade Blooms order is confirmed"
-      : type === "PAYMENT_FAILED"
-        ? "We couldn’t confirm your payment"
-        : "Update on your Handmade Blooms order";
+
+  const config: Record<
+    string,
+    { title: string; message: string }
+  > = {
+    ORDER_CONFIRMED: {
+      title: "Your Handmade Blooms order is confirmed",
+      message:
+        "We’ll continue updating your order as it moves through preparation and fulfillment.",
+    },
+    PAYMENT_FAILED: {
+      title: "We couldn’t confirm your payment",
+      message:
+        "No new payment is required until you intentionally start checkout again.",
+    },
+    ORDER_CANCELLED: {
+      title: "Your Handmade Blooms order was cancelled",
+      message: order.reason
+        ? `Reason: ${order.reason}`
+        : "This order will not continue to fulfillment.",
+    },
+    ORDER_REFUND_STARTED: {
+      title: "Your refund has started",
+      message:
+        "Stripe is processing the refund. We’ll update the order when the refund reaches its final state.",
+    },
+    ORDER_PARTIALLY_REFUNDED: {
+      title: "A partial refund was completed",
+      message: `Refunded: ${order.currency} ${(order.refundAmount ?? 0).toFixed(2)}. Total refunded so far: ${order.currency} ${(order.refundedTotal ?? 0).toFixed(2)}.`,
+    },
+    ORDER_REFUNDED: {
+      title: "Your refund was completed",
+      message: `Refunded: ${order.currency} ${(order.refundAmount ?? 0).toFixed(2)}.`,
+    },
+    ORDER_REFUND_FAILED: {
+      title: "There was a problem with your refund",
+      message: order.reason
+        ? order.reason
+        : "The refund did not complete successfully. CRJ will review the payment and contact you if action is required.",
+    },
+    ORDER_SHIPPED: {
+      title: "Your Handmade Blooms order has shipped",
+      message: [
+        order.carrier ? `Carrier: ${order.carrier}` : null,
+        order.trackingNumber
+          ? `Tracking: ${order.trackingNumber}`
+          : null,
+      ]
+        .filter(Boolean)
+        .join(" · ") || "Your order is on the way.",
+    },
+    ORDER_DELIVERED: {
+      title: "Your Handmade Blooms order was delivered",
+      message: "We hope the blooms make the moment a little more special.",
+    },
+  };
+
+  const selected = config[type] ?? {
+    title: "Update on your Handmade Blooms order",
+    message:
+      "We’ll continue updating your order as it moves through preparation and fulfillment.",
+  };
 
   return `
     <div style="font-family:Arial,sans-serif;max-width:560px;margin:auto;color:#321A32">
       <p style="font-size:12px;color:#E85D9E;text-transform:uppercase;letter-spacing:.12em">Handmade Blooms by CRJ</p>
-      <h1 style="font-size:28px;margin:16px 0">${escapeHtml(title)}</h1>
+      <h1 style="font-size:28px;margin:16px 0">${escapeHtml(selected.title)}</h1>
       <p>Order <strong>${escapeHtml(order.orderNumber)}</strong></p>
       <p>Total: <strong>${escapeHtml(order.currency)} ${order.total.toFixed(2)}</strong></p>
-      <p style="color:#756471;line-height:1.6">We’ll continue updating your order as it moves through preparation and fulfillment.</p>
+      <p style="color:#756471;line-height:1.6">${escapeHtml(selected.message)}</p>
     </div>
   `;
 }

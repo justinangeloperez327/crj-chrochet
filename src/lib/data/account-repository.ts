@@ -65,6 +65,12 @@ export async function listAccountOrders(userId: string) {
       items: {
         orderBy: { createdAt: "asc" },
       },
+      refunds: {
+        where: {
+          status: { in: ["PENDING", "REQUIRES_ACTION", "SUCCEEDED"] },
+        },
+        orderBy: { createdAt: "desc" },
+      },
     },
   });
 }

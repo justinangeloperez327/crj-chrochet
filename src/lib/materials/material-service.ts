@@ -266,7 +266,10 @@ export async function consumeCustomBouquetMaterialsTx(
   if (!request) throw new Error("Custom bouquet request not found.");
   if (request.materialsConsumedAt) return request;
 
-  if (request.order?.paymentStatus !== "PAID") {
+  if (
+    request.order?.paymentStatus !== "PAID" &&
+    request.order?.paymentStatus !== "PARTIALLY_REFUNDED"
+  ) {
     throw new Error(
       "Custom bouquet must be paid before materials can be consumed.",
     );

@@ -7,6 +7,7 @@ import {
   markOrderPaidFromStripe,
   markStripePaymentFailed,
 } from "@/lib/orders/order-lifecycle";
+import { syncStripeRefund } from "@/lib/payments/refund-service";
 
 export async function processStripeWebhook(event: Stripe.Event) {
   const db = requireDb();
@@ -25,7 +26,10 @@ export async function processStripeWebhook(event: Stripe.Event) {
     const session = event.data.object as Stripe.Checkout.Session;
 
     if (session.payment_status === "paid") {
-      await markOrderPaidFromStripe(session.id);
+      await markOrderPaidFromStripe(
+        session.id,
+        paymentIntentId(session.payment_intent),
+      );
       await processNotificationOutbox(5).catch(() => undefined);
     }
   }
@@ -41,6 +45,16 @@ export async function processStripeWebhook(event: Stripe.Event) {
     await expireStripeCheckout(session.id);
   }
 
+  if (
+    event.type === "refund.created" ||
+    event.type === "refund.updated" ||
+    event.type === "refund.failed"
+  ) {
+    const refund = event.data.object as Stripe.Refund;
+    await syncStripeRefund(refund);
+    await processNotificationOutbox(5).catch(() => undefined);
+  }
+
   await db.paymentWebhookEvent.upsert({
     where: { id: event.id },
     update: {},
@@ -52,4 +66,12 @@ export async function processStripeWebhook(event: Stripe.Event) {
   });
 
   return { duplicate: false };
+}
+
+
+function paymentIntentId(
+  value: string | Stripe.PaymentIntent | null,
+) {
+  if (!value) return null;
+  return typeof value === "string" ? value : value.id;
 }

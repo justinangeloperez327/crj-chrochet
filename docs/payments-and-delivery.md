@@ -29,6 +29,9 @@ Listen for:
 - `checkout.session.async_payment_succeeded`
 - `checkout.session.async_payment_failed`
 - `checkout.session.expired`
+- `refund.created`
+- `refund.updated`
+- `refund.failed`
 
 Do not mark an order paid from the browser return page. Only a successfully verified Stripe webhook changes `PaymentStatus` to `PAID`.
 
@@ -207,3 +210,10 @@ The browser is never authoritative for:
 Those values are calculated or verified on the server.
 
 A customer-facing return URL is presentation only. Stripe webhook signature verification is the payment authority.
+
+
+## Refund and return continuation
+
+Group 11 adds Stripe refunds, cancellation safeguards, physical finished-stock returns, and the Ready → Shipped → Out for Delivery → Delivered workflow.
+
+See `docs/refunds-and-fulfillment.md`.
