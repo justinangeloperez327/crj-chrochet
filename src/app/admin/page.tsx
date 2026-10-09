@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, Boxes, Flower2, ShoppingBag, Users } from "lucide-react";
+import { ArrowRight, BarChart3, Boxes, Flower2, ShoppingBag, Users } from "lucide-react";
 
 import { DatabaseRequired } from "@/components/admin/database-required";
 import { StatusBadge } from "@/components/admin/status-badge";
@@ -12,7 +12,7 @@ export default async function AdminDashboardPage() {
 
   const cards = [
     {
-      label: "30-day revenue",
+      label: "30-day net revenue",
       value: `AED ${money(data.metrics.revenue30Days)}`,
       icon: ShoppingBag,
     },
@@ -47,13 +47,22 @@ export default async function AdminDashboardPage() {
             Orders, stock, and product health at a glance.
           </p>
         </div>
-        <Link
-          href="/admin/products/new"
-          className="inline-flex h-10 items-center gap-2 bg-bloom-plum px-4 text-xs font-semibold text-white"
-        >
-          Add product
-          <ArrowRight className="size-3.5" />
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          <Link
+            href="/admin/reports"
+            className="inline-flex h-10 items-center gap-2 border border-bloom-border bg-white px-4 text-xs font-semibold text-bloom-plum"
+          >
+            Reports
+            <BarChart3 className="size-3.5" />
+          </Link>
+          <Link
+            href="/admin/products/new"
+            className="inline-flex h-10 items-center gap-2 bg-bloom-plum px-4 text-xs font-semibold text-white"
+          >
+            Add product
+            <ArrowRight className="size-3.5" />
+          </Link>
+        </div>
       </div>
 
       <div className="mt-7 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">

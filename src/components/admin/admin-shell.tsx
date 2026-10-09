@@ -1,5 +1,6 @@
 import Link from "next/link";
 import {
+  BarChart3,
   Boxes,
   Flower2,
   FlaskConical,
@@ -19,6 +20,7 @@ const navigation = [
   { label: "Custom Bouquets", href: "/admin/custom-bouquets", icon: WandSparkles },
   { label: "Production", href: "/admin/production", icon: Hammer },
   { label: "Orders", href: "/admin/orders", icon: PackageSearch },
+  { label: "Reports", href: "/admin/reports", icon: BarChart3 },
 ];
 
 export function AdminShell({ children }: { children: React.ReactNode }) {

@@ -39,7 +39,7 @@ export async function getAdminDashboardData() {
         paymentStatus: {
           in: ["PAID", "PARTIALLY_REFUNDED", "REFUNDED"],
         },
-        createdAt: { gte: thirtyDaysAgo },
+        paidAt: { gte: thirtyDaysAgo },
       },
       select: {
         total: true,
