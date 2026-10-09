@@ -1,6 +1,5 @@
 import type Stripe from "stripe";
 
-import type { Prisma } from "@/generated/prisma/client";
 import { requireDb } from "@/lib/db";
 import {
   releaseCustomBouquetMaterials,
