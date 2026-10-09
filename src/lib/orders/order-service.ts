@@ -107,6 +107,7 @@ export async function createPendingOrder(input: CreateOrderInput) {
       );
 
       validateAndCalculateReservations(lines);
+      const allocatedLines = lines.map(withProductionAllocation);
 
       const email = input.email.trim().toLowerCase();
       const firstName = input.address.firstName.trim();
@@ -216,7 +217,7 @@ export async function createPendingOrder(input: CreateOrderInput) {
             },
           },
           items: {
-            create: lines.map((line) => ({
+            create: allocatedLines.map((line) => ({
               productId: line.productId,
               variantId: line.variantId,
               productName: line.productName,
@@ -224,6 +225,8 @@ export async function createPendingOrder(input: CreateOrderInput) {
               variantName: line.variantName,
               unitPrice: line.unitPrice,
               quantity: line.quantity,
+              reservedStockQuantity: line.reservedStockQuantity,
+              productionQuantity: line.productionQuantity,
               lineTotal: roundMoney(line.unitPrice * line.quantity),
             })),
           },
@@ -240,25 +243,14 @@ export async function createPendingOrder(input: CreateOrderInput) {
         },
       });
 
-      for (const line of lines) {
-        const available = Math.max(
-          0,
-          line.stockOnHand - line.stockReserved,
-        );
-        const reserveQuantity =
-          line.fulfillmentMode === "READY_STOCK"
-            ? line.quantity
-            : line.fulfillmentMode === "BOTH"
-              ? Math.min(available, line.quantity)
-              : 0;
-
-        if (reserveQuantity === 0) continue;
+      for (const line of allocatedLines) {
+        if (line.reservedStockQuantity === 0) continue;
 
         await tx.productVariant.update({
           where: { id: line.variantId },
           data: {
             stockReserved: {
-              increment: reserveQuantity,
+              increment: line.reservedStockQuantity,
             },
           },
         });
@@ -268,7 +260,7 @@ export async function createPendingOrder(input: CreateOrderInput) {
             variantId: line.variantId,
             orderId: order.id,
             type: "RESERVATION",
-            quantity: reserveQuantity,
+            quantity: line.reservedStockQuantity,
             note: `Reserved for ${order.orderNumber}`,
           },
         });
@@ -290,6 +282,26 @@ export async function createPendingOrder(input: CreateOrderInput) {
       isolationLevel: "Serializable",
     },
   );
+}
+
+function withProductionAllocation(line: ResolvedLine) {
+  const available = Math.max(
+    0,
+    line.stockOnHand - line.stockReserved,
+  );
+
+  const reservedStockQuantity =
+    line.fulfillmentMode === "READY_STOCK"
+      ? line.quantity
+      : line.fulfillmentMode === "BOTH"
+        ? Math.min(available, line.quantity)
+        : 0;
+
+  return {
+    ...line,
+    reservedStockQuantity,
+    productionQuantity: line.quantity - reservedStockQuantity,
+  };
 }
 
 async function resolveCart(

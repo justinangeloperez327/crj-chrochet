@@ -172,34 +172,55 @@ export default async function AdminCustomBouquetPage({ params }: Props) {
               Starting production consumes the frozen raw-material plan once.
             </p>
 
-            <form action={updateCustomBouquetStatus} className="mt-5">
-              <input type="hidden" name="requestId" value={request.id} />
-              <select
-                name="status"
-                defaultValue={request.status}
-                className="h-11 w-full border border-bloom-border bg-white px-3 text-sm outline-none focus:border-bloom-violet"
+            {["PAID", "IN_PRODUCTION", "READY", "COMPLETED"].includes(
+              request.status,
+            ) ? (
+              <div className="mt-5">
+                <StatusBadge value={request.status} />
+                <p className="mt-3 text-[10px] leading-4 text-bloom-muted">
+                  Paid custom bouquets are controlled from the production and
+                  delivery workflows so quality check cannot be bypassed.
+                </p>
+                <Link
+                  href="/admin/production"
+                  className="mt-4 inline-flex h-10 items-center bg-bloom-violet px-4 text-[10px] font-semibold text-white"
+                >
+                  Open production planner
+                </Link>
+              </div>
+            ) : (
+              <form action={updateCustomBouquetStatus} className="mt-5">
+                <input type="hidden" name="requestId" value={request.id} />
+                <select
+                  name="status"
+                  defaultValue={request.status}
+                  className="h-11 w-full border border-bloom-border bg-white px-3 text-sm outline-none focus:border-bloom-violet"
+                >
+                  <option value="SUBMITTED">Submitted</option>
+                  <option value="REVIEWING">Reviewing</option>
+                  <option value="APPROVED">Approved</option>
+                  <option value="AWAITING_PAYMENT" disabled>
+                    Awaiting payment
+                  </option>
+                  <option value="DECLINED">Declined</option>
+                </select>
+                <button
+                  type="submit"
+                  className="mt-3 h-11 w-full bg-bloom-plum px-4 text-sm font-semibold text-white"
+                >
+                  Update status
+                </button>
+              </form>
+            )}
+
+            {request.order ? (
+              <Link
+                href="/admin/production"
+                className="mt-3 inline-flex text-[10px] font-semibold uppercase tracking-[0.08em] text-bloom-violet"
               >
-                <option value="SUBMITTED">Submitted</option>
-                <option value="REVIEWING">Reviewing</option>
-                <option value="APPROVED">Approved</option>
-                <option value="AWAITING_PAYMENT" disabled>
-                  Awaiting payment
-                </option>
-                <option value="PAID" disabled>
-                  Paid
-                </option>
-                <option value="IN_PRODUCTION">In production</option>
-                <option value="READY">Ready</option>
-                <option value="COMPLETED">Completed</option>
-                <option value="DECLINED">Declined</option>
-              </select>
-              <button
-                type="submit"
-                className="mt-3 h-11 w-full bg-bloom-plum px-4 text-sm font-semibold text-white"
-              >
-                Update status
-              </button>
-            </form>
+                Open production planner
+              </Link>
+            ) : null}
 
             <p className="mt-3 text-[10px] text-bloom-muted">
               Materials:{" "}

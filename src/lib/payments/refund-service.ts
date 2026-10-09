@@ -9,6 +9,7 @@ import {
   releaseReadyStockReservationsForOrder,
 } from "@/lib/orders/order-lifecycle";
 import { getStripe } from "@/lib/payments/stripe";
+import { syncProductionJobFromOrderStatus } from "@/lib/production/production-service";
 
 type CreateRefundInput = {
   orderId: string;
@@ -409,6 +410,12 @@ async function finalizeSuccessfulRefund(refundId: string) {
           cancellationReason: refund.reason,
         },
       });
+
+      await syncProductionJobFromOrderStatus(
+        tx,
+        refund.orderId,
+        "CANCELLED",
+      );
     }
 
     await tx.notificationOutbox.create({

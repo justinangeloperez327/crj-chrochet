@@ -19,18 +19,25 @@ export async function consumeOrderItemMaterials(
   });
 
   if (!item || item.materialsConsumedAt || !item.variant) return false;
+  if (item.productionQuantity <= 0) return false;
 
-  if (item.variant.fulfillmentMode !== "MADE_TO_ORDER") {
+  if (
+    item.variant.fulfillmentMode !== "MADE_TO_ORDER" &&
+    item.variant.fulfillmentMode !== "BOTH"
+  ) {
     return false;
   }
 
   if (item.variant.billOfMaterials.length === 0) {
-    return false;
+    throw new Error(
+      `No bill of materials is configured for production SKU ${item.sku}.`,
+    );
   }
 
   const requirements = item.variant.billOfMaterials.map((recipe) => ({
     recipe,
-    required: Number(recipe.quantity) * item.quantity,
+    required:
+      Number(recipe.quantity) * item.productionQuantity,
   }));
 
   for (const { recipe, required } of requirements) {

@@ -1,6 +1,7 @@
 import type { Prisma } from "@/generated/prisma/client";
 import { requireDb } from "@/lib/db";
 import { releaseCustomBouquetForOrder } from "@/lib/materials/material-service";
+import { ensureProductionJobForOrder } from "@/lib/production/production-service";
 
 export async function markOrderPaidFromStripe(
   externalId: string,
@@ -36,6 +37,7 @@ export async function markOrderPaidFromStripe(
         },
       });
 
+      await ensureProductionJobForOrder(tx, attempt.orderId);
       return attempt.order;
     }
 
@@ -74,6 +76,8 @@ export async function markOrderPaidFromStripe(
         status: "PAID",
       },
     });
+
+    await ensureProductionJobForOrder(tx, order.id);
 
     if (order.discountId) {
       await tx.discount.update({

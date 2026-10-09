@@ -3,6 +3,7 @@ import {
   Boxes,
   Flower2,
   FlaskConical,
+  Hammer,
   LayoutDashboard,
   PackageSearch,
   ShoppingBag,
@@ -16,6 +17,7 @@ const navigation = [
   { label: "Inventory", href: "/admin/inventory", icon: Boxes },
   { label: "Materials", href: "/admin/materials", icon: FlaskConical },
   { label: "Custom Bouquets", href: "/admin/custom-bouquets", icon: WandSparkles },
+  { label: "Production", href: "/admin/production", icon: Hammer },
   { label: "Orders", href: "/admin/orders", icon: PackageSearch },
 ];
 

@@ -144,6 +144,21 @@ enum CustomBouquetStatus {
   DECLINED
 }
 
+enum ProductionPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum ProductionJobStatus {
+  QUEUED
+  IN_PROGRESS
+  QUALITY_CHECK
+  COMPLETED
+  CANCELLED
+}
+
 model Category {
   id          String    @id @default(cuid())
   name        String
@@ -380,6 +395,7 @@ model Order {
   refunds           Refund[]
   notifications    NotificationOutbox[]
   customBouquetRequest CustomBouquetRequest?
+  productionJob     ProductionJob?
   createdAt         DateTime          @default(now())
   updatedAt         DateTime          @updatedAt
 
@@ -493,6 +509,8 @@ model OrderItem {
   variantName String
   unitPrice   Decimal         @db.Decimal(10, 2)
   quantity    Int
+  reservedStockQuantity Int   @default(0)
+  productionQuantity Int      @default(0)
   lineTotal   Decimal         @db.Decimal(10, 2)
   returnedQuantity Int         @default(0)
   materialsConsumedAt DateTime?
@@ -505,6 +523,28 @@ model OrderItem {
   @@index([orderId])
   @@index([productId])
   @@index([variantId])
+}
+
+model ProductionJob {
+  id              String              @id @default(cuid())
+  orderId         String              @unique
+  status          ProductionJobStatus @default(QUEUED)
+  priority        ProductionPriority  @default(NORMAL)
+  assignedTo      String?
+  plannedMinutes  Int?
+  plannedStartAt  DateTime?
+  dueAt           DateTime?
+  startedAt       DateTime?
+  qualityStartedAt DateTime?
+  completedAt     DateTime?
+  notes           String?
+  order           Order               @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  @@index([status, priority, dueAt])
+  @@index([assignedTo, status])
+  @@index([dueAt])
 }
 
 model WishlistItem {

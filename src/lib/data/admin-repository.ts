@@ -214,6 +214,7 @@ export async function getAdminOrder(id: string) {
           status: true,
         },
       },
+      productionJob: true,
       items: {
         orderBy: { createdAt: "asc" },
         include: {

@@ -2,6 +2,7 @@ import Link from "next/link";
 import {
   ArrowLeft,
   Gift,
+  Hammer,
   MapPin,
   PackageCheck,
   RotateCcw,
@@ -83,14 +84,24 @@ export default async function AdminOrderPage({ params }: OrderPageProps) {
             Created {formatDateTime(order.createdAt)} · {order.items.length} line
             {order.items.length === 1 ? "" : "s"}
           </p>
-          {order.customBouquetRequest ? (
-            <Link
-              href={`/admin/custom-bouquets/${order.customBouquetRequest.id}`}
-              className="mt-2 inline-flex text-xs font-semibold text-bloom-violet hover:text-bloom-pink"
-            >
-              Custom bouquet {order.customBouquetRequest.referenceNumber}
-            </Link>
-          ) : null}
+          <div className="mt-2 flex flex-wrap gap-3">
+            {order.customBouquetRequest ? (
+              <Link
+                href={`/admin/custom-bouquets/${order.customBouquetRequest.id}`}
+                className="inline-flex text-xs font-semibold text-bloom-violet hover:text-bloom-pink"
+              >
+                Custom bouquet {order.customBouquetRequest.referenceNumber}
+              </Link>
+            ) : null}
+            {order.productionJob ? (
+              <Link
+                href="/admin/production"
+                className="inline-flex text-xs font-semibold text-bloom-pink hover:text-bloom-violet"
+              >
+                Production planner
+              </Link>
+            ) : null}
+          </div>
         </div>
 
         <div className="flex flex-wrap gap-2">
@@ -113,6 +124,8 @@ export default async function AdminOrderPage({ params }: OrderPageProps) {
                     <th className="px-5 py-3 font-semibold">Product</th>
                     <th className="px-5 py-3 font-semibold">SKU</th>
                     <th className="px-5 py-3 text-right font-semibold">Qty</th>
+                    <th className="px-5 py-3 text-right font-semibold">From stock</th>
+                    <th className="px-5 py-3 text-right font-semibold">Produce</th>
                     <th className="px-5 py-3 text-right font-semibold">Returned</th>
                     <th className="px-5 py-3 text-right font-semibold">Total</th>
                   </tr>
@@ -126,6 +139,8 @@ export default async function AdminOrderPage({ params }: OrderPageProps) {
                       </td>
                       <td className="px-5 py-4 font-mono text-[10px] text-bloom-muted">{item.sku}</td>
                       <td className="px-5 py-4 text-right">{item.quantity}</td>
+                      <td className="px-5 py-4 text-right">{item.reservedStockQuantity}</td>
+                      <td className="px-5 py-4 text-right">{item.productionQuantity}</td>
                       <td className="px-5 py-4 text-right">{item.returnedQuantity}</td>
                       <td className="px-5 py-4 text-right font-semibold">
                         AED {money(Number(item.lineTotal))}
@@ -252,6 +267,41 @@ export default async function AdminOrderPage({ params }: OrderPageProps) {
         </div>
 
         <aside className="space-y-6 xl:sticky xl:top-8 xl:self-start">
+          {order.productionJob ? (
+            <section className="border border-bloom-border bg-white p-5">
+              <div className="flex items-center gap-2">
+                <Hammer className="size-4 text-bloom-violet" />
+                <h2 className="text-sm font-semibold">Production plan</h2>
+              </div>
+              <div className="mt-4 space-y-3 text-xs">
+                <Row
+                  label="Stage"
+                  value={order.productionJob.status.replaceAll("_", " ").toLowerCase()}
+                />
+                <Row label="Priority" value={order.productionJob.priority.toLowerCase()} />
+                <Row label="Assignee" value={order.productionJob.assignedTo || "Unassigned"} />
+                <Row
+                  label="Due"
+                  value={order.productionJob.dueAt ? formatDateTime(order.productionJob.dueAt) : "Not planned"}
+                />
+                <Row
+                  label="Planned time"
+                  value={
+                    order.productionJob.plannedMinutes
+                      ? `${order.productionJob.plannedMinutes} min`
+                      : "Not estimated"
+                  }
+                />
+              </div>
+              <Link
+                href="/admin/production"
+                className="mt-4 inline-flex h-9 items-center bg-bloom-violet px-3 text-[10px] font-semibold text-white"
+              >
+                Open planner
+              </Link>
+            </section>
+          ) : null}
+
           {!workflowLocked ? (
             <section className="border border-bloom-border bg-white p-5">
               <div className="flex items-center gap-2">

@@ -15,6 +15,11 @@ import {
 import { processNotificationOutbox } from "@/lib/notifications/notification-service";
 import { updateDeliveryFulfillment } from "@/lib/orders/fulfillment-service";
 import { createStripeRefund } from "@/lib/payments/refund-service";
+import {
+  isAllowedProductionTransition,
+  syncEligibleProductionJobs,
+  syncProductionJobFromOrderStatus,
+} from "@/lib/production/production-service";
 
 const PRODUCT_STATUSES = ["DRAFT", "ACTIVE", "ARCHIVED"] as const;
 const FULFILLMENT_MODES = ["READY_STOCK", "MADE_TO_ORDER", "BOTH"] as const;
@@ -288,6 +293,12 @@ export async function updateOrderWorkflow(formData: FormData) {
       include: {
         inventoryMovement: true,
         items: {
+          select: {
+            id: true,
+            productionQuantity: true,
+          },
+        },
+        productionJob: {
           select: { id: true },
         },
         customBouquetRequest: {
@@ -370,6 +381,20 @@ export async function updateOrderWorkflow(formData: FormData) {
     ) {
       throw new Error(
         "Confirm custom bouquet payment first, then start production in a separate step.",
+      );
+    }
+
+    const requiresProduction =
+      Boolean(order.customBouquetRequest) ||
+      order.items.some((item) => item.productionQuantity > 0);
+
+    if (
+      requiresProduction &&
+      ["PAID", "PARTIALLY_REFUNDED"].includes(paymentStatus) &&
+      !isAllowedProductionTransition(order.status, status)
+    ) {
+      throw new Error(
+        `Invalid production transition from ${order.status} to ${status}.`,
       );
     }
 
@@ -582,6 +607,8 @@ export async function updateOrderWorkflow(formData: FormData) {
       }
     }
 
+    await syncProductionJobFromOrderStatus(tx, orderId, status);
+
     if (becomingPaid && order.discountId) {
       await tx.discount.update({
         where: { id: order.discountId },
@@ -668,6 +695,26 @@ function required(formData: FormData, key: string) {
 function optional(formData: FormData, key: string) {
   const value = formData.get(key);
   return typeof value === "string" ? value.trim() : "";
+}
+
+function dateValue(
+  formData: FormData,
+  key: string,
+  endOfDay: boolean,
+) {
+  const value = optional(formData, key);
+  if (!value) return null;
+
+  const suffix = endOfDay
+    ? "T23:59:59.999Z"
+    : "T00:00:00.000Z";
+  const date = new Date(`${value}${suffix}`);
+
+  if (Number.isNaN(date.getTime())) {
+    throw new Error(`${key} must be a valid date.`);
+  }
+
+  return date;
 }
 
 function integer(formData: FormData, key: string, fallback?: number) {
@@ -835,6 +882,48 @@ export async function returnOrderItemStock(formData: FormData) {
   revalidatePath("/admin/inventory");
   revalidatePath("/admin");
   revalidateStorefront();
+}
+
+export async function updateProductionPlan(formData: FormData) {
+  await requireAdmin();
+  const db = requireDb();
+  const jobId = required(formData, "jobId");
+  const priority = enumValue(
+    required(formData, "priority"),
+    ["LOW", "NORMAL", "HIGH", "URGENT"] as const,
+    "production priority",
+  );
+  const assignedTo = optional(formData, "assignedTo") || null;
+  const plannedMinutes = optional(formData, "plannedMinutes")
+    ? integer(formData, "plannedMinutes")
+    : null;
+  const plannedStartAt = dateValue(formData, "plannedStartAt", false);
+  const dueAt = dateValue(formData, "dueAt", true);
+  const notes = optional(formData, "notes") || null;
+
+  if (plannedMinutes !== null && plannedMinutes <= 0) {
+    throw new Error("Planned minutes must be greater than zero.");
+  }
+
+  await db.productionJob.update({
+    where: { id: jobId },
+    data: {
+      priority,
+      assignedTo,
+      plannedMinutes,
+      plannedStartAt,
+      dueAt,
+      notes,
+    },
+  });
+
+  revalidatePath("/admin/production");
+}
+
+export async function syncProductionQueue() {
+  await requireAdmin();
+  await syncEligibleProductionJobs();
+  revalidatePath("/admin/production");
 }
 
 export async function createRawMaterial(formData: FormData) {
@@ -1111,6 +1200,7 @@ export async function updateCustomBouquetStatus(formData: FormData) {
       include: {
         order: {
           select: {
+            id: true,
             paymentStatus: true,
           },
         },
@@ -1155,18 +1245,19 @@ export async function updateCustomBouquetStatus(formData: FormData) {
                 status: "READY" as const,
                 fulfillmentStatus: "READY" as const,
               }
-            : status === "COMPLETED"
-              ? {
-                  status: "FULFILLED" as const,
-                  fulfillmentStatus: "DELIVERED" as const,
-                }
-              : null;
+            : null;
 
       if (orderState) {
         await tx.order.update({
           where: { id: request.order.id },
           data: orderState,
         });
+
+        await syncProductionJobFromOrderStatus(
+          tx,
+          request.order.id,
+          orderState.status,
+        );
       }
     }
   });
@@ -1202,9 +1293,9 @@ function isValidCustomBouquetTransition(
     REVIEWING: ["APPROVED", "DECLINED"],
     APPROVED: ["DECLINED"],
     AWAITING_PAYMENT: [],
-    PAID: ["IN_PRODUCTION"],
-    IN_PRODUCTION: ["READY"],
-    READY: ["COMPLETED"],
+    PAID: [],
+    IN_PRODUCTION: [],
+    READY: [],
     COMPLETED: [],
     DECLINED: [],
   };
