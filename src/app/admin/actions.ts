@@ -2,10 +2,16 @@
 
 import { randomBytes } from "node:crypto";
 
+import type { Prisma } from "@/generated/prisma/client";
+
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { requireAdmin } from "@/lib/auth/guards";
+import {
+  consumeDiscountReservationForPaidOrder,
+  releaseDiscountReservationForOrder,
+} from "@/lib/discounts/discount-service";
 import { requireDb } from "@/lib/db";
 import {
   consumeCustomBouquetMaterialsTx,
@@ -482,6 +488,7 @@ export async function updateOrderWorkflow(formData: FormData) {
         orderId,
         `Custom bouquet reservation released after cancelling ${order.orderNumber}`,
       );
+      await releaseDiscountReservationForOrder(tx, orderId);
 
       if (order.customBouquetRequest) {
         await tx.customBouquetRequest.update({
@@ -609,11 +616,8 @@ export async function updateOrderWorkflow(formData: FormData) {
 
     await syncProductionJobFromOrderStatus(tx, orderId, status);
 
-    if (becomingPaid && order.discountId) {
-      await tx.discount.update({
-        where: { id: order.discountId },
-        data: { redemptionCount: { increment: 1 } },
-      });
+    if (becomingPaid) {
+      await consumeDiscountReservationForPaidOrder(tx, orderId);
     }
 
     if (becomingPaid) {
@@ -766,6 +770,379 @@ function slugify(value: string) {
     .replace(/^-+|-+$/g, "");
 }
 
+
+export async function createDiscount(formData: FormData) {
+  await requireAdmin();
+  const db = requireDb();
+  const input = discountFormInput(formData);
+
+  await db.$transaction(async (tx) => {
+    const existing = await tx.discount.findUnique({
+      where: { code: input.code },
+      select: { id: true },
+    });
+
+    if (existing) {
+      throw new Error("A discount with that code already exists.");
+    }
+
+    await validateDiscountTargets(
+      tx,
+      input.scope,
+      input.productIds,
+      input.collectionIds,
+    );
+
+    const discount = await tx.discount.create({
+      data: {
+        code: input.code,
+        description: input.description,
+        type: input.type,
+        scope: input.scope,
+        customerEligibility: input.customerEligibility,
+        value: input.value,
+        minimumOrderAmount: input.minimumOrderAmount,
+        startsAt: input.startsAt,
+        endsAt: input.endsAt,
+        maxRedemptions: input.maxRedemptions,
+        maxRedemptionsPerCustomer: input.maxRedemptionsPerCustomer,
+        automatic: input.automatic,
+        priority: input.priority,
+        isActive: input.isActive,
+      },
+    });
+
+    await replaceDiscountTargets(
+      tx,
+      discount.id,
+      input.scope,
+      input.productIds,
+      input.collectionIds,
+    );
+  });
+
+  revalidatePath("/admin/discounts");
+}
+
+export async function updateDiscount(formData: FormData) {
+  await requireAdmin();
+  const db = requireDb();
+  const id = required(formData, "id");
+  const input = discountFormInput(formData);
+
+  await db.$transaction(async (tx) => {
+    const current = await tx.discount.findUnique({
+      where: { id },
+    });
+
+    if (!current) throw new Error("Discount not found.");
+
+    if (
+      input.maxRedemptions !== null &&
+      input.maxRedemptions <
+        current.redemptionCount + current.reservedRedemptions
+    ) {
+      throw new Error(
+        "The redemption limit cannot be lower than successful plus currently reserved uses.",
+      );
+    }
+
+    const codeOwner = await tx.discount.findUnique({
+      where: { code: input.code },
+      select: { id: true },
+    });
+
+    if (codeOwner && codeOwner.id !== id) {
+      throw new Error("A discount with that code already exists.");
+    }
+
+    await validateDiscountTargets(
+      tx,
+      input.scope,
+      input.productIds,
+      input.collectionIds,
+    );
+
+    await tx.discount.update({
+      where: { id },
+      data: {
+        code: input.code,
+        description: input.description,
+        type: input.type,
+        scope: input.scope,
+        customerEligibility: input.customerEligibility,
+        value: input.value,
+        minimumOrderAmount: input.minimumOrderAmount,
+        startsAt: input.startsAt,
+        endsAt: input.endsAt,
+        maxRedemptions: input.maxRedemptions,
+        maxRedemptionsPerCustomer: input.maxRedemptionsPerCustomer,
+        automatic: input.automatic,
+        priority: input.priority,
+        isActive: input.isActive,
+      },
+    });
+
+    await replaceDiscountTargets(
+      tx,
+      id,
+      input.scope,
+      input.productIds,
+      input.collectionIds,
+    );
+  });
+
+  revalidatePath("/admin/discounts");
+}
+
+export async function deleteDiscount(formData: FormData) {
+  await requireAdmin();
+  const db = requireDb();
+  const id = required(formData, "id");
+
+  await db.$transaction(async (tx) => {
+    const discount = await tx.discount.findUnique({
+      where: { id },
+      include: {
+        _count: { select: { orders: true } },
+      },
+    });
+
+    if (!discount) return;
+
+    if (
+      discount._count.orders > 0 ||
+      discount.redemptionCount > 0 ||
+      discount.reservedRedemptions > 0
+    ) {
+      throw new Error(
+        "Discounts with order history or reserved uses cannot be deleted. Deactivate the promotion instead.",
+      );
+    }
+
+    await tx.discount.delete({ where: { id } });
+  });
+
+  revalidatePath("/admin/discounts");
+}
+
+type DiscountFormInput = {
+  code: string;
+  description: string | null;
+  type: "PERCENTAGE" | "FIXED_AMOUNT";
+  scope: "ENTIRE_ORDER" | "PRODUCTS" | "COLLECTIONS";
+  customerEligibility:
+    | "ALL"
+    | "NEW_CUSTOMERS"
+    | "RETURNING_CUSTOMERS";
+  value: number;
+  minimumOrderAmount: number | null;
+  startsAt: Date | null;
+  endsAt: Date | null;
+  maxRedemptions: number | null;
+  maxRedemptionsPerCustomer: number | null;
+  automatic: boolean;
+  priority: number;
+  isActive: boolean;
+  productIds: string[];
+  collectionIds: string[];
+};
+
+function discountFormInput(formData: FormData): DiscountFormInput {
+  const code = required(formData, "code").trim().toUpperCase();
+
+  if (!/^[A-Z0-9][A-Z0-9_-]{2,31}$/.test(code)) {
+    throw new Error(
+      "Discount code must be 3–32 characters using letters, numbers, hyphens, or underscores.",
+    );
+  }
+
+  const type = enumValue(
+    required(formData, "type"),
+    ["PERCENTAGE", "FIXED_AMOUNT"] as const,
+    "discount type",
+  );
+  const scope = enumValue(
+    required(formData, "scope"),
+    ["ENTIRE_ORDER", "PRODUCTS", "COLLECTIONS"] as const,
+    "discount scope",
+  );
+  const customerEligibility = enumValue(
+    required(formData, "customerEligibility"),
+    ["ALL", "NEW_CUSTOMERS", "RETURNING_CUSTOMERS"] as const,
+    "customer eligibility",
+  );
+  const value = money(formData, "value");
+  const minimumOrderAmount = nullableMoney(
+    formData,
+    "minimumOrderAmount",
+  );
+  const startsAt = promotionDateValue(formData, "startsAt", false);
+  const endsAt = promotionDateValue(formData, "endsAt", true);
+  const maxRedemptions = nullableInteger(formData, "maxRedemptions");
+  const maxRedemptionsPerCustomer = nullableInteger(
+    formData,
+    "maxRedemptionsPerCustomer",
+  );
+  const priority = integer(formData, "priority", 0);
+
+  if (value <= 0) {
+    throw new Error("Discount value must be greater than zero.");
+  }
+
+  if (type === "PERCENTAGE" && value > 100) {
+    throw new Error("Percentage discounts cannot exceed 100%.");
+  }
+
+  if (minimumOrderAmount !== null && minimumOrderAmount < 0) {
+    throw new Error("Minimum order amount cannot be negative.");
+  }
+
+  if (startsAt && endsAt && startsAt > endsAt) {
+    throw new Error("Promotion start date must be before its end date.");
+  }
+
+  if (maxRedemptions !== null && maxRedemptions < 1) {
+    throw new Error("Maximum redemptions must be at least 1.");
+  }
+
+  if (
+    maxRedemptionsPerCustomer !== null &&
+    maxRedemptionsPerCustomer < 1
+  ) {
+    throw new Error("Per-customer limit must be at least 1.");
+  }
+
+  if (priority < -1000 || priority > 1000) {
+    throw new Error("Promotion priority must be between -1000 and 1000.");
+  }
+
+  const productIds = uniqueFormValues(formData, "productIds");
+  const collectionIds = uniqueFormValues(formData, "collectionIds");
+
+  if (scope === "PRODUCTS" && productIds.length === 0) {
+    throw new Error("Select at least one product for a product promotion.");
+  }
+
+  if (scope === "COLLECTIONS" && collectionIds.length === 0) {
+    throw new Error(
+      "Select at least one collection for a collection promotion.",
+    );
+  }
+
+  return {
+    code,
+    description: optional(formData, "description") || null,
+    type,
+    scope,
+    customerEligibility,
+    value,
+    minimumOrderAmount,
+    startsAt,
+    endsAt,
+    maxRedemptions,
+    maxRedemptionsPerCustomer,
+    automatic: formData.get("automatic") === "on",
+    priority,
+    isActive: formData.get("isActive") === "on",
+    productIds,
+    collectionIds,
+  };
+}
+
+async function validateDiscountTargets(
+  tx: Prisma.TransactionClient,
+  scope: "ENTIRE_ORDER" | "PRODUCTS" | "COLLECTIONS",
+  productIds: string[],
+  collectionIds: string[],
+) {
+  if (scope === "PRODUCTS") {
+    const count = await tx.product.count({
+      where: { id: { in: productIds }, status: { not: "ARCHIVED" } },
+    });
+
+    if (count !== productIds.length) {
+      throw new Error("One or more selected products are unavailable.");
+    }
+  }
+
+  if (scope === "COLLECTIONS") {
+    const count = await tx.collection.count({
+      where: { id: { in: collectionIds } },
+    });
+
+    if (count !== collectionIds.length) {
+      throw new Error("One or more selected collections are unavailable.");
+    }
+  }
+}
+
+async function replaceDiscountTargets(
+  tx: Prisma.TransactionClient,
+  discountId: string,
+  scope: "ENTIRE_ORDER" | "PRODUCTS" | "COLLECTIONS",
+  productIds: string[],
+  collectionIds: string[],
+) {
+  await Promise.all([
+    tx.discountProduct.deleteMany({ where: { discountId } }),
+    tx.discountCollection.deleteMany({ where: { discountId } }),
+  ]);
+
+  if (scope === "PRODUCTS" && productIds.length > 0) {
+    await tx.discountProduct.createMany({
+      data: productIds.map((productId) => ({
+        discountId,
+        productId,
+      })),
+    });
+  }
+
+  if (scope === "COLLECTIONS" && collectionIds.length > 0) {
+    await tx.discountCollection.createMany({
+      data: collectionIds.map((collectionId) => ({
+        discountId,
+        collectionId,
+      })),
+    });
+  }
+}
+
+function uniqueFormValues(formData: FormData, key: string) {
+  return [
+    ...new Set(
+      formData
+        .getAll(key)
+        .filter((value): value is string => typeof value === "string")
+        .map((value) => value.trim())
+        .filter(Boolean),
+    ),
+  ];
+}
+
+function promotionDateValue(
+  formData: FormData,
+  key: string,
+  endOfDay: boolean,
+) {
+  const value = optional(formData, key);
+  if (!value) return null;
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    throw new Error(`${key} must be a valid date.`);
+  }
+
+  const suffix = endOfDay
+    ? "T23:59:59.999+04:00"
+    : "T00:00:00.000+04:00";
+  const date = new Date(`${value}${suffix}`);
+
+  if (Number.isNaN(date.getTime())) {
+    throw new Error(`${key} must be a valid date.`);
+  }
+
+  return date;
+}
 
 export async function refundOrder(formData: FormData) {
   const admin = await requireAdmin();

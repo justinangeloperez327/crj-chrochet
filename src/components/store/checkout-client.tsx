@@ -42,6 +42,8 @@ export function CheckoutClient({
   const [discountCode, setDiscountCode] = useState("");
   const [appliedDiscountCode, setAppliedDiscountCode] = useState("");
   const [discountAmount, setDiscountAmount] = useState(0);
+  const [discountAutomatic, setDiscountAutomatic] = useState(false);
+  const [discountDescription, setDiscountDescription] = useState("");
   const [discountError, setDiscountError] = useState("");
   const [discountLoading, setDiscountLoading] = useState(false);
   const [deliveryAmount, setDeliveryAmount] = useState(0);
@@ -55,8 +57,30 @@ export function CheckoutClient({
     clientSubtotal - discountAmount + deliveryAmount,
   );
 
-  function handleInformation(event: FormEvent<HTMLFormElement>) {
+  async function handleInformation(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+
+    if (appliedDiscountCode && !discountAutomatic) {
+      setDiscountLoading(true);
+      setDiscountError("");
+
+      try {
+        const quote = await requestDiscountQuote(appliedDiscountCode);
+        applyQuote(quote);
+      } catch (error) {
+        clearDiscount();
+        setDiscountError(
+          error instanceof Error
+            ? error.message
+            : "The discount could not be applied.",
+        );
+      } finally {
+        setDiscountLoading(false);
+      }
+    } else {
+      await refreshAutomaticPromotion();
+    }
+
     setStep("delivery");
   }
 
@@ -97,9 +121,7 @@ export function CheckoutClient({
     const code = discountCode.trim().toUpperCase();
 
     if (!code) {
-      setAppliedDiscountCode("");
-      setDiscountAmount(0);
-      setDiscountError("");
+      await refreshAutomaticPromotion();
       return;
     }
 
@@ -107,31 +129,10 @@ export function CheckoutClient({
     setDiscountError("");
 
     try {
-      const response = await fetch("/api/discounts/validate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          code,
-          items: toCheckoutItems(cart),
-        }),
-      });
-      const payload = (await response.json()) as {
-        quote?: {
-          discountAmount: number;
-          discountCode: string | null;
-        };
-        error?: string;
-      };
-
-      if (!response.ok || !payload.quote) {
-        throw new Error(payload.error || "The discount could not be applied.");
-      }
-
-      setAppliedDiscountCode(payload.quote.discountCode ?? "");
-      setDiscountAmount(payload.quote.discountAmount);
+      const quote = await requestDiscountQuote(code);
+      applyQuote(quote);
     } catch (error) {
-      setAppliedDiscountCode("");
-      setDiscountAmount(0);
+      clearDiscount();
       setDiscountError(
         error instanceof Error
           ? error.message
@@ -140,6 +141,70 @@ export function CheckoutClient({
     } finally {
       setDiscountLoading(false);
     }
+  }
+
+  async function refreshAutomaticPromotion() {
+    setDiscountLoading(true);
+    setDiscountError("");
+
+    try {
+      const quote = await requestDiscountQuote();
+      applyQuote(quote);
+    } catch {
+      clearDiscount();
+    } finally {
+      setDiscountLoading(false);
+    }
+  }
+
+  async function requestDiscountQuote(code?: string) {
+    const response = await fetch("/api/discounts/validate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        code,
+        email,
+        items: toCheckoutItems(cart),
+      }),
+    });
+    const payload = (await response.json()) as {
+      quote?: {
+        discountAmount: number;
+        eligibleSubtotal: number;
+        discountCode: string | null;
+        automatic: boolean;
+        description: string | null;
+      };
+      error?: string;
+    };
+
+    if (!response.ok || !payload.quote) {
+      throw new Error(
+        payload.error || "The discount could not be applied.",
+      );
+    }
+
+    return payload.quote;
+  }
+
+  function applyQuote(quote: {
+    discountAmount: number;
+    eligibleSubtotal: number;
+    discountCode: string | null;
+    automatic: boolean;
+    description: string | null;
+  }) {
+    setAppliedDiscountCode(quote.discountCode ?? "");
+    setDiscountAmount(quote.discountAmount);
+    setDiscountAutomatic(quote.automatic);
+    setDiscountDescription(quote.description ?? "");
+  }
+
+  function clearDiscount() {
+    setAppliedDiscountCode("");
+    setDiscountAmount(0);
+    setDiscountAutomatic(false);
+    setDiscountDescription("");
   }
 
   async function createOrder() {
@@ -509,8 +574,7 @@ export function CheckoutClient({
                   onChange={(event) => {
                     setDiscountCode(event.target.value.toUpperCase());
                     if (appliedDiscountCode) {
-                      setAppliedDiscountCode("");
-                      setDiscountAmount(0);
+                      clearDiscount();
                     }
                   }}
                   placeholder="WELCOME10"
@@ -531,9 +595,17 @@ export function CheckoutClient({
                 </p>
               ) : null}
               {appliedDiscountCode ? (
-                <p className="mt-2 text-[11px] font-semibold text-bloom-success">
-                  {appliedDiscountCode} applied · AED {discountAmount} saved
-                </p>
+                <div className="mt-2 text-[11px]">
+                  <p className="font-semibold text-bloom-success">
+                    {discountAutomatic ? "Automatic · " : ""}
+                    {appliedDiscountCode} applied · AED {discountAmount} saved
+                  </p>
+                  {discountDescription ? (
+                    <p className="mt-1 leading-4 text-bloom-muted">
+                      {discountDescription}
+                    </p>
+                  ) : null}
+                </div>
               ) : null}
             </div>
 

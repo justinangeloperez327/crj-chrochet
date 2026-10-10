@@ -47,6 +47,14 @@ export default async function AccountOrdersPage() {
                   <p className="text-sm font-semibold text-bloom-plum">
                     {order.currency} {money(Number(order.total))}
                   </p>
+                  {Number(order.discountAmount) > 0 ? (
+                    <p className="mt-1 text-[10px] font-semibold text-bloom-success">
+                      {order.discountCodeSnapshot
+                        ? `${order.discountCodeSnapshot} · `
+                        : ""}
+                      saved AED {money(Number(order.discountAmount))}
+                    </p>
+                  ) : null}
                   {Number(order.refundedAmount) > 0 ? (
                     <p className="mt-1 text-[10px] font-semibold text-bloom-violet">
                       Refunded {order.currency} {money(Number(order.refundedAmount))}

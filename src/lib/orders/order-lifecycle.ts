@@ -1,4 +1,8 @@
 import type { Prisma } from "@/generated/prisma/client";
+import {
+  consumeDiscountReservationForPaidOrder,
+  releaseDiscountReservationForOrder,
+} from "@/lib/discounts/discount-service";
 import { requireDb } from "@/lib/db";
 import { releaseCustomBouquetForOrder } from "@/lib/materials/material-service";
 import { ensureProductionJobForOrder } from "@/lib/production/production-service";
@@ -79,12 +83,7 @@ export async function markOrderPaidFromStripe(
 
     await ensureProductionJobForOrder(tx, order.id);
 
-    if (order.discountId) {
-      await tx.discount.update({
-        where: { id: order.discountId },
-        data: { redemptionCount: { increment: 1 } },
-      });
-    }
+    await consumeDiscountReservationForPaidOrder(tx, order.id);
 
     await tx.notificationOutbox.create({
       data: {
@@ -190,6 +189,7 @@ export async function expireStripeCheckout(externalId: string) {
       attempt.orderId,
       `Released after payment session expired for ${attempt.order.orderNumber}`,
     );
+    await releaseDiscountReservationForOrder(tx, attempt.orderId);
 
     return tx.order.update({
       where: { id: attempt.orderId },
@@ -215,6 +215,7 @@ export async function cancelPendingOrder(
 
     await releaseReadyStockReservationsForOrder(tx, orderId, note);
     await releaseCustomBouquetForOrder(tx, orderId, note);
+    await releaseDiscountReservationForOrder(tx, orderId);
 
     await tx.paymentAttempt.updateMany({
       where: {

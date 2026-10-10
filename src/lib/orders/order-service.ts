@@ -1,4 +1,9 @@
 import type { Prisma } from "@/generated/prisma/client";
+import {
+  DiscountValidationError,
+  reserveDiscountForOrder,
+  resolveDiscount,
+} from "@/lib/discounts/discount-service";
 import { getDeliveryRate } from "@/lib/delivery/delivery-service";
 import { requireDb } from "@/lib/db";
 import { createOrderNumber } from "@/lib/orders/order-number";
@@ -64,6 +69,7 @@ export class OrderCreationError extends Error {
 export async function getOrderQuote(
   items: CheckoutLineInput[],
   discountCode?: string,
+  customerEmail?: string,
 ) {
   const db = requireDb();
 
@@ -75,13 +81,28 @@ export async function getOrderQuote(
         0,
       ),
     );
-    const discount = await resolveDiscount(tx, discountCode, subtotal);
+    let discount: Awaited<ReturnType<typeof resolveDiscount>>;
+    try {
+      discount = await resolveDiscount(tx, {
+        code: discountCode,
+        lines,
+        customerEmail,
+      });
+    } catch (error) {
+      if (error instanceof DiscountValidationError) {
+        throw new OrderCreationError(error.message);
+      }
+      throw error;
+    }
 
     return {
       subtotal,
       discountAmount: discount.amount,
+      eligibleSubtotal: discount.eligibleSubtotal,
       total: roundMoney(subtotal - discount.amount),
       discountCode: discount.record?.code ?? null,
+      automatic: discount.automatic,
+      description: discount.record?.description ?? null,
     };
   });
 }
@@ -100,11 +121,19 @@ export async function createPendingOrder(input: CreateOrderInput) {
           0,
         ),
       );
-      const discount = await resolveDiscount(
-        tx,
-        input.discountCode,
-        subtotal,
-      );
+      let discount;
+      try {
+        discount = await resolveDiscount(tx, {
+          code: input.discountCode,
+          lines,
+          customerEmail: input.email,
+        });
+      } catch (error) {
+        if (error instanceof DiscountValidationError) {
+          throw new OrderCreationError(error.message);
+        }
+        throw error;
+      }
 
       validateAndCalculateReservations(lines);
       const allocatedLines = lines.map(withProductionAllocation);
@@ -197,6 +226,8 @@ export async function createPendingOrder(input: CreateOrderInput) {
           currency: "AED",
           subtotal,
           discountAmount,
+          discountEligibleSubtotal: discount.eligibleSubtotal,
+          discountCodeSnapshot: discount.record?.code ?? null,
           deliveryAmount,
           total,
           isGift: Boolean(input.isGift),
@@ -242,6 +273,21 @@ export async function createPendingOrder(input: CreateOrderInput) {
           reservationExpiresAt: true,
         },
       });
+
+      if (discount.record) {
+        try {
+          await reserveDiscountForOrder(tx, {
+            orderId: order.id,
+            discountId: discount.record.id,
+            customerEmail: email,
+          });
+        } catch (error) {
+          if (error instanceof DiscountValidationError) {
+            throw new OrderCreationError(error.message, 409);
+          }
+          throw error;
+        }
+      }
 
       for (const line of allocatedLines) {
         if (line.reservedStockQuantity === 0) continue;
@@ -414,66 +460,6 @@ function validateAndCalculateReservations(lines: ResolvedLine[]) {
       );
     }
   }
-}
-
-async function resolveDiscount(
-  tx: Prisma.TransactionClient,
-  code: string | undefined,
-  subtotal: number,
-) {
-  const normalized = code?.trim().toUpperCase();
-
-  if (!normalized) {
-    return { record: null, amount: 0 };
-  }
-
-  const discount = await tx.discount.findUnique({
-    where: { code: normalized },
-  });
-
-  if (!discount || !discount.isActive) {
-    throw new OrderCreationError("That discount code is not valid.");
-  }
-
-  const now = new Date();
-
-  if (discount.startsAt && discount.startsAt > now) {
-    throw new OrderCreationError("That discount code is not active yet.");
-  }
-
-  if (discount.endsAt && discount.endsAt < now) {
-    throw new OrderCreationError("That discount code has expired.");
-  }
-
-  if (
-    discount.maxRedemptions !== null &&
-    discount.redemptionCount >= discount.maxRedemptions
-  ) {
-    throw new OrderCreationError(
-      "That discount code has reached its redemption limit.",
-    );
-  }
-
-  const minimum = discount.minimumOrderAmount
-    ? Number(discount.minimumOrderAmount)
-    : 0;
-
-  if (subtotal < minimum) {
-    throw new OrderCreationError(
-      `A minimum order of AED ${minimum} is required for this discount.`,
-    );
-  }
-
-  const value = Number(discount.value);
-  const amount =
-    discount.type === "PERCENTAGE"
-      ? Math.min(subtotal, subtotal * (value / 100))
-      : Math.min(subtotal, value);
-
-  return {
-    record: discount,
-    amount: roundMoney(amount),
-  };
 }
 
 function validateOrderInput(input: CreateOrderInput) {

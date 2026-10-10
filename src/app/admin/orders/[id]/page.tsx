@@ -402,7 +402,14 @@ export default async function AdminOrderPage({ params }: OrderPageProps) {
             <h2 className="text-sm font-semibold">Order totals</h2>
             <div className="mt-4 space-y-3 text-xs">
               <Row label="Subtotal" value={`AED ${money(Number(order.subtotal))}`} />
-              <Row label="Discount" value={`− AED ${money(Number(order.discountAmount))}`} />
+              <Row
+                label={
+                  order.discountCodeSnapshot
+                    ? `Discount (${order.discountCodeSnapshot})`
+                    : "Discount"
+                }
+                value={`− AED ${money(Number(order.discountAmount))}`}
+              />
               <Row label="Delivery" value={`AED ${money(Number(order.deliveryAmount))}`} />
               {refunded > 0 ? <Row label="Refunded" value={`− AED ${money(refunded)}`} /> : null}
               <div className="flex items-end justify-between border-t border-bloom-border pt-4">

@@ -10,13 +10,18 @@ export const runtime = "nodejs";
 
 type DiscountRequest = {
   code?: string;
+  email?: string;
   items?: CheckoutLineInput[];
 };
 
 export async function POST(request: Request) {
   try {
     const input = (await request.json()) as DiscountRequest;
-    const quote = await getOrderQuote(input.items ?? [], input.code);
+    const quote = await getOrderQuote(
+      input.items ?? [],
+      input.code,
+      input.email,
+    );
 
     return NextResponse.json({ quote });
   } catch (error) {

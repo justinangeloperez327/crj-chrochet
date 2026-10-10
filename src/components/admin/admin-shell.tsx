@@ -1,5 +1,6 @@
 import Link from "next/link";
 import {
+  BadgePercent,
   BarChart3,
   Boxes,
   Flower2,
@@ -20,6 +21,7 @@ const navigation = [
   { label: "Custom Bouquets", href: "/admin/custom-bouquets", icon: WandSparkles },
   { label: "Production", href: "/admin/production", icon: Hammer },
   { label: "Orders", href: "/admin/orders", icon: PackageSearch },
+  { label: "Discounts", href: "/admin/discounts", icon: BadgePercent },
   { label: "Reports", href: "/admin/reports", icon: BarChart3 },
 ];
 
