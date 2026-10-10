@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 
 import { ShopBrowser } from "@/components/store/shop-browser";
 import { SiteFooter } from "@/components/store/site-footer";
 import { SiteHeader } from "@/components/store/site-header";
 import { loadStorefrontProducts } from "@/lib/data/storefront-catalog";
+import { loadStorefrontCollections } from "@/lib/data/storefront-collections";
 
 export const metadata: Metadata = {
   title: "Shop Crochet Blooms",
@@ -12,7 +14,13 @@ export const metadata: Metadata = {
 };
 
 export default async function ShopPage() {
-  const products = await loadStorefrontProducts();
+  const [products, collections] = await Promise.all([
+    loadStorefrontProducts(),
+    loadStorefrontCollections(),
+  ]);
+  const featuredCollections = collections
+    .filter((collection) => collection.featured)
+    .slice(0, 4);
   const productFlowers = Array.from(
     new Set(products.map((product) => product.flower)),
   ).sort();
@@ -36,6 +44,23 @@ export default async function ShopPage() {
                 your preferred color and size.
               </p>
             </div>
+
+            {featuredCollections.length > 0 ? (
+              <div className="mt-8 flex flex-wrap gap-2 border-t border-bloom-border/70 pt-5">
+                <span className="mr-2 self-center text-[10px] font-semibold uppercase tracking-[0.1em] text-bloom-muted">
+                  Collections
+                </span>
+                {featuredCollections.map((collection) => (
+                  <Link
+                    key={collection.id}
+                    href={`/collections/${collection.slug}`}
+                    className="border border-bloom-border bg-white px-3 py-2 text-[10px] font-semibold text-bloom-plum transition-colors hover:border-bloom-violet hover:text-bloom-violet"
+                  >
+                    {collection.name}
+                  </Link>
+                ))}
+              </div>
+            ) : null}
           </div>
         </section>
 

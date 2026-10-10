@@ -270,6 +270,7 @@ type CollectionOption = {
   name: string;
   slug: string;
   featured: boolean;
+  isActive: boolean;
 };
 
 type DiscountInitial = {
@@ -490,7 +491,13 @@ function DiscountForm({
                 name="collectionIds"
                 value={collection.id}
                 label={collection.name}
-                hint={collection.featured ? "featured" : undefined}
+                hint={
+                  collection.isActive
+                    ? collection.featured
+                      ? "published · featured"
+                      : "published"
+                    : "hidden · promotion will not apply"
+                }
                 defaultChecked={collectionIds.has(collection.id)}
               />
             ))

@@ -12,8 +12,8 @@ import { BloomArtwork } from "@/components/store/bloom-art";
 import { ProductCard } from "@/components/store/product-card";
 import { SiteFooter } from "@/components/store/site-footer";
 import { SiteHeader } from "@/components/store/site-header";
-import { flowerCollections } from "@/lib/catalog";
 import { loadStorefrontProducts } from "@/lib/data/storefront-catalog";
+import { loadStorefrontCollections } from "@/lib/data/storefront-collections";
 
 const occasions = [
   "Birthday",
@@ -25,10 +25,20 @@ const occasions = [
 ];
 
 export default async function Home() {
-  const storefrontProducts = await loadStorefrontProducts();
+  const [storefrontProducts, storefrontCollections] = await Promise.all([
+    loadStorefrontProducts(),
+    loadStorefrontCollections(),
+  ]);
   const featuredProducts = storefrontProducts
     .filter((product) => product.featured)
     .slice(0, 4);
+  const featuredCollections = storefrontCollections
+    .filter((collection) => collection.featured)
+    .slice(0, 3);
+  const homepageCollections =
+    featuredCollections.length > 0
+      ? featuredCollections
+      : storefrontCollections.slice(0, 3);
 
   return (
     <div className="min-h-screen overflow-x-hidden bg-background text-foreground">
@@ -112,42 +122,61 @@ export default async function Home() {
           <div className="mb-10 flex items-end justify-between gap-8">
             <div>
               <p className="text-[11px] font-semibold tracking-[0.18em] text-bloom-pink uppercase">
-                Find your favorite
+                Curated by CRJ
               </p>
               <h2 className="mt-3 font-display text-4xl font-semibold tracking-[-0.035em] text-bloom-plum sm:text-5xl">
-                Shop by flower
+                Collections made for the moment.
               </h2>
             </div>
             <Link
-              href="/shop"
+              href="/collections"
               className="hidden items-center gap-2 text-sm font-semibold text-bloom-plum transition-colors hover:text-bloom-pink sm:flex"
             >
-              See all blooms
+              Browse collections
               <ArrowRight className="size-4" />
             </Link>
           </div>
 
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-5">
-            {flowerCollections.map((collection) => (
-              <Link key={collection.name} href="/shop" className="group block">
-                <div className="relative aspect-[4/5] overflow-hidden border border-bloom-border bg-white">
-                  <BloomArtwork
-                    tone={collection.tone}
-                    compact
-                    className="absolute inset-0 transition-transform duration-500 group-hover:scale-[1.035]"
-                  />
-                  <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-bloom-plum/70 via-bloom-plum/20 to-transparent p-4 pt-14 text-white sm:p-5">
-                    <p className="font-display text-xl font-semibold sm:text-2xl">
-                      {collection.name}
-                    </p>
-                    <p className="mt-1 text-[10px] font-medium tracking-[0.12em] text-white/80 uppercase sm:text-xs">
-                      {collection.note}
-                    </p>
+          {homepageCollections.length > 0 ? (
+            <div className="grid gap-4 md:grid-cols-3 md:gap-5">
+              {homepageCollections.map((collection) => (
+                <Link
+                  key={collection.id}
+                  href={`/collections/${collection.slug}`}
+                  className="group block"
+                >
+                  <div className="relative aspect-[4/5] overflow-hidden border border-bloom-border bg-white">
+                    <BloomArtwork
+                      tone={collection.tone}
+                      compact
+                      className="absolute inset-0 transition-transform duration-500 group-hover:scale-[1.035]"
+                    />
+                    <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-bloom-plum/80 via-bloom-plum/35 to-transparent p-5 pt-20 text-white">
+                      <p className="font-display text-2xl font-semibold">
+                        {collection.name}
+                      </p>
+                      <p className="mt-2 line-clamp-2 text-xs leading-5 text-white/80">
+                        {collection.description ||
+                          `${collection.products.length} handmade bloom selections`}
+                      </p>
+                    </div>
                   </div>
-                </div>
-              </Link>
-            ))}
-          </div>
+                </Link>
+              ))}
+            </div>
+          ) : (
+            <div className="border border-bloom-border bg-white p-8 text-center text-sm text-bloom-muted">
+              New collections are being curated.
+            </div>
+          )}
+
+          <Link
+            href="/collections"
+            className="mt-6 inline-flex items-center gap-2 text-sm font-semibold text-bloom-plum sm:hidden"
+          >
+            Browse collections
+            <ArrowRight className="size-4" />
+          </Link>
         </section>
 
         <section id="shop" className="border-y border-bloom-border bg-white">

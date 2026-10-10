@@ -192,25 +192,42 @@ async function main() {
   });
 
   const collectionDefinitions = [
-    ["best-sellers", "Best Sellers", "Most-loved handmade blooms.", true],
-    ["ready-to-ship", "Ready to Ship", "Finished pieces available from current stock.", true],
-    ["made-to-order", "Made to Order", "Bouquets made after the order is confirmed.", false],
-    ["gift-favorites", "Gift Favorites", "Easy gifting choices for meaningful occasions.", true],
+    ["best-sellers", "Best Sellers", "Most-loved handmade blooms.", true, 10],
+    ["ready-to-ship", "Ready to Ship", "Finished pieces available from current stock.", true, 20],
+    ["gift-favorites", "Gift Favorites", "Easy gifting choices for meaningful occasions.", true, 30],
+    ["made-to-order", "Made to Order", "Bouquets made after the order is confirmed.", false, 40],
   ] as const;
 
   const collections = new Map<string, string>();
 
-  for (const [slug, name, description, featured] of collectionDefinitions) {
+  for (const [slug, name, description, featured, sortOrder] of collectionDefinitions) {
     const collection = await prisma.collection.upsert({
       where: { slug },
-      update: { name, description, featured },
-      create: { slug, name, description, featured },
+      update: {
+        name,
+        description,
+        featured,
+        isActive: true,
+        sortOrder,
+        seoTitle: name,
+        seoDescription: description,
+      },
+      create: {
+        slug,
+        name,
+        description,
+        featured,
+        isActive: true,
+        sortOrder,
+        seoTitle: name,
+        seoDescription: description,
+      },
     });
 
     collections.set(slug, collection.id);
   }
 
-  for (const productData of seedProducts) {
+  for (const [productIndex, productData] of seedProducts.entries()) {
     const product = await prisma.product.upsert({
       where: { slug: productData.slug },
       update: {
@@ -302,10 +319,13 @@ async function main() {
             productId: product.id,
           },
         },
-        update: {},
+        update: {
+          sortOrder: (productIndex + 1) * 10,
+        },
         create: {
           collectionId,
           productId: product.id,
+          sortOrder: (productIndex + 1) * 10,
         },
       });
     }

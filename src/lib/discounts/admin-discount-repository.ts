@@ -65,6 +65,7 @@ export async function getAdminDiscountData() {
         name: true,
         slug: true,
         featured: true,
+        isActive: true,
       },
       orderBy: { name: "asc" },
     }),

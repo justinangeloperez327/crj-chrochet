@@ -7,6 +7,7 @@ import {
   FlaskConical,
   Hammer,
   LayoutDashboard,
+  Layers,
   PackageSearch,
   ShoppingBag,
   Store,
@@ -16,6 +17,7 @@ import {
 const navigation = [
   { label: "Dashboard", href: "/admin", icon: LayoutDashboard },
   { label: "Products", href: "/admin/products", icon: Flower2 },
+  { label: "Collections", href: "/admin/collections", icon: Layers },
   { label: "Inventory", href: "/admin/inventory", icon: Boxes },
   { label: "Materials", href: "/admin/materials", icon: FlaskConical },
   { label: "Custom Bouquets", href: "/admin/custom-bouquets", icon: WandSparkles },

@@ -19,7 +19,7 @@ import {
 
 const navigation = [
   { label: "Shop", href: "/shop" },
-  { label: "Collections", href: "/#collections" },
+  { label: "Collections", href: "/collections" },
   { label: "Build a Bouquet", href: "/build-a-bouquet" },
   { label: "Our Story", href: "/#story" },
 ];

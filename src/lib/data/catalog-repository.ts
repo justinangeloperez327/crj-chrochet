@@ -78,7 +78,7 @@ export async function listLowStockVariants() {
   );
 }
 
-function mapDatabaseProduct(record: DatabaseProduct): Product {
+export function mapDatabaseProduct(record: DatabaseProduct): Product {
   const variants: ProductVariantOption[] = record.variants.map((variant) => {
     const available = Math.max(
       0,

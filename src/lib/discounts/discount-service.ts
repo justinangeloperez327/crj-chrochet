@@ -439,6 +439,7 @@ async function resolveEligibleProductIds(
         in: discount.collections.map((rule) => rule.collectionId),
       },
       productId: { in: productIds },
+      collection: { isActive: true },
     },
     select: { productId: true },
   });

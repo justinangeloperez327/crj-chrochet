@@ -685,7 +685,16 @@ function revalidateStorefront() {
   revalidatePath("/");
   revalidatePath("/shop");
   revalidatePath("/products/[slug]", "page");
+  revalidatePath("/collections");
+  revalidatePath("/collections/[slug]", "page");
   revalidatePath("/admin/products");
+}
+
+function revalidateCollectionStorefront() {
+  revalidatePath("/");
+  revalidatePath("/shop");
+  revalidatePath("/collections");
+  revalidatePath("/collections/[slug]", "page");
 }
 
 function required(formData: FormData, key: string) {
@@ -770,6 +779,227 @@ function slugify(value: string) {
     .replace(/^-+|-+$/g, "");
 }
 
+
+export async function createCollection(formData: FormData) {
+  await requireAdmin();
+  const db = requireDb();
+  const name = required(formData, "name");
+  const slug = slugify(optional(formData, "slug") || name);
+  const sortOrder = integer(formData, "sortOrder", 0);
+  validateCollectionFields(formData, sortOrder);
+
+  if (!slug) {
+    throw new Error("Collection slug is required.");
+  }
+
+  const existing = await db.collection.findUnique({
+    where: { slug },
+    select: { id: true },
+  });
+
+  if (existing) {
+    throw new Error("A collection with that slug already exists.");
+  }
+
+  const collection = await db.collection.create({
+    data: {
+      name,
+      slug,
+      description: optional(formData, "description") || null,
+      featured: formData.get("featured") === "on",
+      isActive: formData.get("isActive") === "on",
+      sortOrder,
+      seoTitle: optional(formData, "seoTitle") || null,
+      seoDescription: optional(formData, "seoDescription") || null,
+    },
+  });
+
+  revalidateCollectionStorefront();
+  revalidatePath("/admin/collections");
+  redirect(`/admin/collections/${collection.id}`);
+}
+
+export async function updateCollection(formData: FormData) {
+  await requireAdmin();
+  const db = requireDb();
+  const id = required(formData, "id");
+  const name = required(formData, "name");
+  const slug = slugify(required(formData, "slug"));
+  const sortOrder = integer(formData, "sortOrder", 0);
+  validateCollectionFields(formData, sortOrder);
+
+  if (!slug) {
+    throw new Error("Collection slug is required.");
+  }
+
+  const current = await db.collection.findUnique({
+    where: { id },
+    select: { id: true, slug: true },
+  });
+
+  if (!current) throw new Error("Collection not found.");
+
+  const owner = await db.collection.findUnique({
+    where: { slug },
+    select: { id: true },
+  });
+
+  if (owner && owner.id !== id) {
+    throw new Error("A collection with that slug already exists.");
+  }
+
+  await db.collection.update({
+    where: { id },
+    data: {
+      name,
+      slug,
+      description: optional(formData, "description") || null,
+      featured: formData.get("featured") === "on",
+      isActive: formData.get("isActive") === "on",
+      sortOrder,
+      seoTitle: optional(formData, "seoTitle") || null,
+      seoDescription: optional(formData, "seoDescription") || null,
+    },
+  });
+
+  revalidateCollectionStorefront();
+  revalidatePath(`/collections/${current.slug}`);
+  revalidatePath(`/collections/${slug}`);
+  revalidatePath("/admin/collections");
+  revalidatePath(`/admin/collections/${id}`);
+}
+
+export async function updateCollectionProducts(formData: FormData) {
+  await requireAdmin();
+  const db = requireDb();
+  const collectionId = required(formData, "collectionId");
+  const productIds = uniqueFormValues(formData, "productIds");
+
+  await db.$transaction(async (tx) => {
+    const collection = await tx.collection.findUnique({
+      where: { id: collectionId },
+      select: { id: true, slug: true },
+    });
+
+    if (!collection) throw new Error("Collection not found.");
+
+    if (productIds.length > 0) {
+      const validProducts = await tx.product.count({
+        where: {
+          id: { in: productIds },
+          status: { not: "ARCHIVED" },
+        },
+      });
+
+      if (validProducts !== productIds.length) {
+        throw new Error(
+          "One or more selected products are unavailable for merchandising.",
+        );
+      }
+    }
+
+    const usedSortOrders = new Set<number>();
+    const assignments = productIds.map((productId, index) => {
+      const raw = optional(formData, `sortOrder_${productId}`);
+      const sortOrder = raw ? Number(raw) : (index + 1) * 10;
+
+      if (
+        !Number.isInteger(sortOrder) ||
+        sortOrder < -10000 ||
+        sortOrder > 10000
+      ) {
+        throw new Error(
+          "Product sort order must be a whole number between -10000 and 10000.",
+        );
+      }
+
+      if (usedSortOrders.has(sortOrder)) {
+        throw new Error(
+          "Each selected product must have a unique sort order.",
+        );
+      }
+      usedSortOrders.add(sortOrder);
+
+      return {
+        collectionId,
+        productId,
+        sortOrder,
+      };
+    });
+
+    await tx.collectionProduct.deleteMany({
+      where: { collectionId },
+    });
+
+    if (assignments.length > 0) {
+      await tx.collectionProduct.createMany({
+        data: assignments,
+      });
+    }
+  });
+
+  revalidateCollectionStorefront();
+  revalidatePath("/admin/collections");
+  revalidatePath(`/admin/collections/${collectionId}`);
+}
+
+export async function deleteCollection(formData: FormData) {
+  await requireAdmin();
+  const db = requireDb();
+  const id = required(formData, "id");
+
+  const collection = await db.collection.findUnique({
+    where: { id },
+    include: {
+      _count: {
+        select: {
+          discountRules: true,
+        },
+      },
+    },
+  });
+
+  if (!collection) return;
+
+  if (collection._count.discountRules > 0) {
+    throw new Error(
+      "This collection is targeted by one or more promotions. Remove those promotion targets before deleting it.",
+    );
+  }
+
+  await db.collection.delete({ where: { id } });
+
+  revalidateCollectionStorefront();
+  revalidatePath("/admin/collections");
+  redirect("/admin/collections");
+}
+
+function validateCollectionFields(
+  formData: FormData,
+  sortOrder: number,
+) {
+  if (sortOrder < -10000 || sortOrder > 10000) {
+    throw new Error(
+      "Collection sort order must be between -10000 and 10000.",
+    );
+  }
+
+  const description = optional(formData, "description");
+  const seoTitle = optional(formData, "seoTitle");
+  const seoDescription = optional(formData, "seoDescription");
+
+  if (description.length > 600) {
+    throw new Error("Collection description must be 600 characters or fewer.");
+  }
+
+  if (seoTitle.length > 70) {
+    throw new Error("SEO title must be 70 characters or fewer.");
+  }
+
+  if (seoDescription.length > 180) {
+    throw new Error("SEO description must be 180 characters or fewer.");
+  }
+}
 
 export async function createDiscount(formData: FormData) {
   await requireAdmin();
