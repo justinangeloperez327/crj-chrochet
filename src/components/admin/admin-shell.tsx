@@ -11,6 +11,7 @@ import {
   PackageSearch,
   ShoppingBag,
   Store,
+  Users,
   WandSparkles,
 } from "lucide-react";
 
@@ -23,6 +24,7 @@ const navigation = [
   { label: "Custom Bouquets", href: "/admin/custom-bouquets", icon: WandSparkles },
   { label: "Production", href: "/admin/production", icon: Hammer },
   { label: "Orders", href: "/admin/orders", icon: PackageSearch },
+  { label: "Customers", href: "/admin/customers", icon: Users },
   { label: "Discounts", href: "/admin/discounts", icon: BadgePercent },
   { label: "Reports", href: "/admin/reports", icon: BarChart3 },
 ];

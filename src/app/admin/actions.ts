@@ -780,6 +780,106 @@ function slugify(value: string) {
 }
 
 
+export async function updateCustomerProfile(formData: FormData) {
+  await requireAdmin();
+  const db = requireDb();
+  const customerId = required(formData, "customerId");
+  const firstName = optional(formData, "firstName");
+  const lastName = optional(formData, "lastName");
+  const phone = optional(formData, "phone");
+
+  if (firstName.length > 80 || lastName.length > 80) {
+    throw new Error("Customer names must be 80 characters or fewer.");
+  }
+
+  if (phone.length > 40) {
+    throw new Error("Phone number must be 40 characters or fewer.");
+  }
+
+  const customer = await db.customer.findUnique({
+    where: { id: customerId },
+    select: { id: true, userId: true },
+  });
+
+  if (!customer) throw new Error("Customer not found.");
+
+  await db.$transaction(async (tx) => {
+    await tx.customer.update({
+      where: { id: customerId },
+      data: {
+        firstName: firstName || null,
+        lastName: lastName || null,
+        phone: phone || null,
+      },
+    });
+
+    if (customer.userId) {
+      const fullName = [firstName, lastName].filter(Boolean).join(" ").trim();
+      await tx.user.update({
+        where: { id: customer.userId },
+        data: { name: fullName || null },
+      });
+    }
+  });
+
+  revalidatePath("/admin/customers");
+  revalidatePath(`/admin/customers/${customerId}`);
+}
+
+export async function createCustomerNote(formData: FormData) {
+  const admin = await requireAdmin();
+  const db = requireDb();
+  const customerId = required(formData, "customerId");
+  const body = required(formData, "body");
+
+  if (body.length > 2000) {
+    throw new Error("Customer note must be 2,000 characters or fewer.");
+  }
+
+  const customer = await db.customer.findUnique({
+    where: { id: customerId },
+    select: { id: true },
+  });
+
+  if (!customer) throw new Error("Customer not found.");
+
+  await db.customerNote.create({
+    data: {
+      customerId,
+      authorUserId: admin.id,
+      body,
+    },
+  });
+
+  revalidatePath("/admin/customers");
+  revalidatePath(`/admin/customers/${customerId}`);
+}
+
+export async function deleteCustomerNote(formData: FormData) {
+  await requireAdmin();
+  const db = requireDb();
+  const noteId = required(formData, "noteId");
+  const customerId = required(formData, "customerId");
+
+  const note = await db.customerNote.findUnique({
+    where: { id: noteId },
+    select: { id: true, customerId: true },
+  });
+
+  if (!note) return;
+
+  if (note.customerId !== customerId) {
+    throw new Error("Customer note does not belong to this customer.");
+  }
+
+  await db.customerNote.delete({
+    where: { id: noteId },
+  });
+
+  revalidatePath("/admin/customers");
+  revalidatePath(`/admin/customers/${customerId}`);
+}
+
 export async function createCollection(formData: FormData) {
   await requireAdmin();
   const db = requireDb();

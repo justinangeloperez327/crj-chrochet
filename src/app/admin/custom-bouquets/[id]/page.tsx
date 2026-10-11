@@ -63,7 +63,17 @@ export default async function AdminCustomBouquetPage({ params }: Props) {
             {request.referenceNumber}
           </h1>
           <p className="mt-2 text-sm text-bloom-muted">
-            {request.customerName} · {request.email}
+            {request.customer ? (
+              <Link
+                href={`/admin/customers/${request.customer.id}`}
+                className="font-semibold text-bloom-plum hover:text-bloom-pink"
+              >
+                {request.customerName}
+              </Link>
+            ) : (
+              request.customerName
+            )}{" "}
+            · {request.email}
           </p>
         </div>
         <StatusBadge value={request.status} />

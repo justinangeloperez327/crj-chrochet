@@ -179,7 +179,18 @@ export default async function AdminOrderPage({ params }: OrderPageProps) {
               title="Customer & notes"
             >
               <div className="text-xs leading-6 text-bloom-muted">
-                <p className="font-semibold text-bloom-plum">{order.customerEmail}</p>
+                {order.customer ? (
+                  <Link
+                    href={`/admin/customers/${order.customer.id}`}
+                    className="font-semibold text-bloom-plum hover:text-bloom-pink"
+                  >
+                    {order.customerEmail}
+                  </Link>
+                ) : (
+                  <p className="font-semibold text-bloom-plum">
+                    {order.customerEmail}
+                  </p>
+                )}
                 {order.customerPhone ? <p>{order.customerPhone}</p> : null}
                 {order.giftMessage ? <p className="mt-3">{order.giftMessage}</p> : null}
                 {order.orderNote ? <p className="mt-3">{order.orderNote}</p> : null}

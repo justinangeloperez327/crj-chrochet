@@ -306,6 +306,7 @@ model User {
   sessions     AuthSession[]
   wishlist     WishlistItem[]
   refundsInitiated Refund[] @relation("RefundInitiatedBy")
+  customerNotesAuthored CustomerNote[] @relation("CustomerNoteAuthor")
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
 
@@ -325,18 +326,33 @@ model AuthSession {
 }
 
 model Customer {
-  id        String    @id @default(cuid())
-  userId    String?   @unique
-  email     String    @unique
-  firstName String?
-  lastName  String?
-  phone     String?
-  user      User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
-  addresses Address[]
-  orders    Order[]
+  id                    String                 @id @default(cuid())
+  userId                String?                @unique
+  email                 String                 @unique
+  firstName             String?
+  lastName              String?
+  phone                 String?
+  user                  User?                  @relation(fields: [userId], references: [id], onDelete: SetNull)
+  addresses             Address[]
+  orders                Order[]
   customBouquetRequests CustomBouquetRequest[]
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  notes                 CustomerNote[]
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+}
+
+model CustomerNote {
+  id           String   @id @default(cuid())
+  customerId   String
+  authorUserId String?
+  body         String
+  customer     Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  author       User?    @relation("CustomerNoteAuthor", fields: [authorUserId], references: [id], onDelete: SetNull)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([customerId, createdAt])
+  @@index([authorUserId])
 }
 
 model Address {
