@@ -2,17 +2,23 @@ import type { Metadata } from "next";
 
 import { AdminShell } from "@/components/admin/admin-shell";
 import { requireAdmin } from "@/lib/auth/guards";
+import { getStoreSettings } from "@/lib/settings/store-settings";
 
-export const metadata: Metadata = {
-  title: {
-    default: "Admin",
-    template: "%s · Handmade Blooms Admin",
-  },
-  robots: {
-    index: false,
-    follow: false,
-  },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const settings = await getStoreSettings();
+  const brand = `${settings.businessName} ${settings.brandByline}`.trim();
+
+  return {
+    title: {
+      default: "Admin",
+      template: `%s · ${brand} Admin`,
+    },
+    robots: {
+      index: false,
+      follow: false,
+    },
+  };
+}
 
 export default async function AdminLayout({
   children,

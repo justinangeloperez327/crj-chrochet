@@ -1,3 +1,8 @@
+import {
+  getStoreSettings,
+  type StoreSettings,
+} from "@/lib/settings/store-settings";
+
 const EMIRATE_ENV_KEYS: Record<string, string> = {
   "abu dhabi": "DELIVERY_RATE_ABU_DHABI_AED",
   dubai: "DELIVERY_RATE_DUBAI_AED",
@@ -8,7 +13,15 @@ const EMIRATE_ENV_KEYS: Record<string, string> = {
   fujairah: "DELIVERY_RATE_FUJAIRAH_AED",
 };
 
-export function getDeliveryRate(emirate: string) {
+export async function getDeliveryRate(emirate: string) {
+  const settings = await getStoreSettings();
+  return getDeliveryRateFromSettings(emirate, settings);
+}
+
+export function getDeliveryRateFromSettings(
+  emirate: string,
+  settings: StoreSettings,
+) {
   const normalized = emirate.trim().toLowerCase();
   const key = EMIRATE_ENV_KEYS[normalized];
 
@@ -16,11 +29,37 @@ export function getDeliveryRate(emirate: string) {
     throw new Error("Unsupported delivery emirate.");
   }
 
-  const specific = parseAmount(process.env[key]);
+  const databaseRate = databaseRateForEmirate(
+    normalized,
+    settings,
+  );
+  if (databaseRate !== null) return databaseRate;
 
+  if (settings.deliveryFlatRate !== null) {
+    return settings.deliveryFlatRate;
+  }
+
+  const specific = parseAmount(process.env[key]);
   if (specific !== null) return specific;
 
   return parseAmount(process.env.DELIVERY_FLAT_RATE_AED) ?? 0;
+}
+
+function databaseRateForEmirate(
+  emirate: string,
+  settings: StoreSettings,
+) {
+  const rates: Record<string, number | null> = {
+    "abu dhabi": settings.deliveryAbuDhabi,
+    dubai: settings.deliveryDubai,
+    sharjah: settings.deliverySharjah,
+    ajman: settings.deliveryAjman,
+    "umm al quwain": settings.deliveryUmmAlQuwain,
+    "ras al khaimah": settings.deliveryRasAlKhaimah,
+    fujairah: settings.deliveryFujairah,
+  };
+
+  return rates[emirate] ?? null;
 }
 
 function parseAmount(value: string | undefined) {

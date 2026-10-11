@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Fraunces, Geist, Geist_Mono } from "next/font/google";
 
+import { getStoreSettings } from "@/lib/settings/store-settings";
+
 import "./globals.css";
 
 const geistSans = Geist({
@@ -18,14 +20,18 @@ const fraunces = Fraunces({
   subsets: ["latin"],
 });
 
-export const metadata: Metadata = {
-  title: {
-    default: "Handmade Blooms by CRJ",
-    template: "%s · Handmade Blooms by CRJ",
-  },
-  description:
-    "Handmade crochet flowers, bouquets, and custom blooms crafted by CRJ.",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const settings = await getStoreSettings();
+  const brand = `${settings.businessName} ${settings.brandByline}`.trim();
+
+  return {
+    title: {
+      default: settings.seoTitle,
+      template: `%s · ${brand}`,
+    },
+    description: settings.seoDescription,
+  };
+}
 
 export default function RootLayout({
   children,

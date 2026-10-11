@@ -22,8 +22,16 @@ type CheckoutStep = "information" | "delivery" | "payment";
 
 export function CheckoutClient({
   cancelled = false,
+  businessName,
+  brandByline,
+  currency,
+  giftOrdersEnabled,
 }: {
   cancelled?: boolean;
+  businessName: string;
+  brandByline: string;
+  currency: string;
+  giftOrdersEnabled: boolean;
 }) {
   const cart = useCart();
   const clientSubtotal = useCartSubtotal();
@@ -220,8 +228,11 @@ export function CheckoutClient({
           address: delivery,
           items: toCheckoutItems(cart),
           discountCode: appliedDiscountCode || undefined,
-          isGift: preferences.isGift,
-          giftMessage: preferences.giftMessage,
+          isGift: giftOrdersEnabled && preferences.isGift,
+          giftMessage:
+            giftOrdersEnabled && preferences.isGift
+              ? preferences.giftMessage
+              : "",
           orderNote: preferences.orderNote,
         }),
       });
@@ -269,7 +280,10 @@ export function CheckoutClient({
 
   return (
     <div className="min-h-screen bg-background">
-      <CheckoutHeader />
+      <CheckoutHeader
+        businessName={businessName}
+        brandByline={brandByline}
+      />
 
       {cancelled ? (
         <div className="border-b border-amber-200 bg-amber-50 px-5 py-3 text-center text-xs text-amber-800">
@@ -426,7 +440,7 @@ export function CheckoutClient({
                 </p>
                 <p className="mt-1 text-xs leading-5 text-bloom-muted">
                   {deliveryAmount > 0
-                    ? `AED ${deliveryAmount} for ${delivery.emirate}`
+                    ? `${currency} ${deliveryAmount} for ${delivery.emirate}`
                     : "Your configured delivery rate will be calculated before payment."}
                 </p>
                 {deliveryError ? (
@@ -539,14 +553,14 @@ export function CheckoutClient({
                       </p>
                     </div>
                     <p className="shrink-0 text-xs font-semibold text-bloom-plum">
-                      AED {line.unitPrice * line.quantity}
+                      {currency} {line.unitPrice * line.quantity}
                     </p>
                   </div>
                 );
               })}
             </div>
 
-            {preferences.isGift ? (
+            {giftOrdersEnabled && preferences.isGift ? (
               <div className="mt-5 border-t border-bloom-border pt-5">
                 <div className="flex items-center gap-2 text-xs font-semibold text-bloom-plum">
                   <Gift className="size-3.5 text-bloom-pink" />
@@ -598,7 +612,7 @@ export function CheckoutClient({
                 <div className="mt-2 text-[11px]">
                   <p className="font-semibold text-bloom-success">
                     {discountAutomatic ? "Automatic · " : ""}
-                    {appliedDiscountCode} applied · AED {discountAmount} saved
+                    {appliedDiscountCode} applied · {currency} {discountAmount} saved
                   </p>
                   {discountDescription ? (
                     <p className="mt-1 leading-4 text-bloom-muted">
@@ -613,21 +627,21 @@ export function CheckoutClient({
               <div className="flex justify-between">
                 <span className="text-bloom-muted">Subtotal</span>
                 <span className="font-semibold text-bloom-plum">
-                  AED {clientSubtotal}
+                  {currency} {clientSubtotal}
                 </span>
               </div>
               {discountAmount > 0 ? (
                 <div className="flex justify-between">
                   <span className="text-bloom-muted">Discount</span>
                   <span className="font-semibold text-bloom-success">
-                    − AED {discountAmount}
+                    − {currency} {discountAmount}
                   </span>
                 </div>
               ) : null}
               <div className="flex justify-between gap-4">
                 <span className="text-bloom-muted">Delivery</span>
                 <span className="text-right text-xs font-medium text-bloom-plum">
-                  AED {deliveryAmount}
+                  {currency} {deliveryAmount}
                 </span>
               </div>
               <div className="flex justify-between border-t border-bloom-border pt-4">
@@ -635,7 +649,7 @@ export function CheckoutClient({
                   Current total
                 </span>
                 <span className="text-lg font-semibold text-bloom-plum">
-                  AED {currentTotal}
+                  {currency} {currentTotal}
                 </span>
               </div>
             </div>
@@ -650,16 +664,22 @@ export function CheckoutClient({
   );
 }
 
-function CheckoutHeader() {
+function CheckoutHeader({
+  businessName,
+  brandByline,
+}: {
+  businessName: string;
+  brandByline: string;
+}) {
   return (
     <header className="border-b border-bloom-border bg-white">
       <div className="mx-auto flex h-18 max-w-[1240px] items-center justify-between px-5 sm:px-8">
         <Link href="/" className="flex items-baseline gap-2">
           <span className="font-display text-xl font-semibold text-bloom-plum">
-            Handmade Blooms
+            {businessName}
           </span>
           <span className="text-[9px] font-semibold tracking-[0.18em] text-bloom-pink uppercase">
-            by CRJ
+            {brandByline}
           </span>
         </Link>
         <div className="flex items-center gap-2 text-[11px] font-semibold text-bloom-muted">

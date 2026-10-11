@@ -1,6 +1,7 @@
 import { Resend } from "resend";
 
 import { requireDb } from "@/lib/db";
+import { getStoreSettings } from "@/lib/settings/store-settings";
 
 type OrderNotificationPayload = {
   orderNumber: string;
@@ -33,6 +34,8 @@ export async function processNotificationOutbox(limit = 20) {
   }
 
   const resend = new Resend(apiKey);
+  const settings = await getStoreSettings();
+  const brand = `${settings.businessName} ${settings.brandByline}`.trim();
   const notifications = await db.notificationOutbox.findMany({
     where: {
       status: { in: ["PENDING", "FAILED"] },
@@ -53,6 +56,7 @@ export async function processNotificationOutbox(limit = 20) {
         html: renderEmail(
           notification.type,
           notification.payload as unknown,
+          brand,
         ),
       });
 
@@ -92,13 +96,17 @@ export async function processNotificationOutbox(limit = 20) {
   };
 }
 
-function renderEmail(type: string, payload: unknown) {
+function renderEmail(
+  type: string,
+  payload: unknown,
+  brand: string,
+) {
   if (type === "CUSTOM_BOUQUET_QUOTE_READY") {
     const quote = payload as CustomBouquetQuotePayload;
 
     return `
       <div style="font-family:Arial,sans-serif;max-width:560px;margin:auto;color:#321A32">
-        <p style="font-size:12px;color:#E85D9E;text-transform:uppercase;letter-spacing:.12em">Handmade Blooms by CRJ</p>
+        <p style="font-size:12px;color:#E85D9E;text-transform:uppercase;letter-spacing:.12em">${escapeHtml(brand)}</p>
         <h1 style="font-size:28px;margin:16px 0">Your custom bouquet is ready for payment</h1>
         <p>Reference <strong>${escapeHtml(quote.referenceNumber)}</strong></p>
         <p>Final bouquet price: <strong>${escapeHtml(quote.currency)} ${quote.finalPrice.toFixed(2)}</strong> before delivery.</p>
@@ -118,7 +126,7 @@ function renderEmail(type: string, payload: unknown) {
     { title: string; message: string }
   > = {
     ORDER_CONFIRMED: {
-      title: "Your Handmade Blooms order is confirmed",
+      title: `Your ${brand} order is confirmed`,
       message:
         "We’ll continue updating your order as it moves through preparation and fulfillment.",
     },
@@ -128,7 +136,7 @@ function renderEmail(type: string, payload: unknown) {
         "No new payment is required until you intentionally start checkout again.",
     },
     ORDER_CANCELLED: {
-      title: "Your Handmade Blooms order was cancelled",
+      title: `Your ${brand} order was cancelled`,
       message: order.reason
         ? `Reason: ${order.reason}`
         : "This order will not continue to fulfillment.",
@@ -150,10 +158,10 @@ function renderEmail(type: string, payload: unknown) {
       title: "There was a problem with your refund",
       message: order.reason
         ? order.reason
-        : "The refund did not complete successfully. CRJ will review the payment and contact you if action is required.",
+        : "The refund did not complete successfully. Our team will review the payment and contact you if action is required.",
     },
     ORDER_SHIPPED: {
-      title: "Your Handmade Blooms order has shipped",
+      title: `Your ${brand} order has shipped`,
       message: [
         order.carrier ? `Carrier: ${order.carrier}` : null,
         order.trackingNumber
@@ -164,20 +172,20 @@ function renderEmail(type: string, payload: unknown) {
         .join(" · ") || "Your order is on the way.",
     },
     ORDER_DELIVERED: {
-      title: "Your Handmade Blooms order was delivered",
+      title: `Your ${brand} order was delivered`,
       message: "We hope the blooms make the moment a little more special.",
     },
   };
 
   const selected = config[type] ?? {
-    title: "Update on your Handmade Blooms order",
+    title: `Update on your ${brand} order`,
     message:
       "We’ll continue updating your order as it moves through preparation and fulfillment.",
   };
 
   return `
     <div style="font-family:Arial,sans-serif;max-width:560px;margin:auto;color:#321A32">
-      <p style="font-size:12px;color:#E85D9E;text-transform:uppercase;letter-spacing:.12em">Handmade Blooms by CRJ</p>
+      <p style="font-size:12px;color:#E85D9E;text-transform:uppercase;letter-spacing:.12em">${escapeHtml(brand)}</p>
       <h1 style="font-size:28px;margin:16px 0">${escapeHtml(selected.title)}</h1>
       <p>Order <strong>${escapeHtml(order.orderNumber)}</strong></p>
       <p>Total: <strong>${escapeHtml(order.currency)} ${order.total.toFixed(2)}</strong></p>

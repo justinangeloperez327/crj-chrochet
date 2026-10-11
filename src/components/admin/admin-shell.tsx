@@ -1,4 +1,6 @@
 import Link from "next/link";
+
+import { getStoreSettings } from "@/lib/settings/store-settings";
 import {
   BadgePercent,
   BarChart3,
@@ -9,6 +11,7 @@ import {
   LayoutDashboard,
   Layers,
   PackageSearch,
+  Settings2,
   ShoppingBag,
   Store,
   Users,
@@ -27,13 +30,20 @@ const navigation = [
   { label: "Customers", href: "/admin/customers", icon: Users },
   { label: "Discounts", href: "/admin/discounts", icon: BadgePercent },
   { label: "Reports", href: "/admin/reports", icon: BarChart3 },
+  { label: "Settings", href: "/admin/settings", icon: Settings2 },
 ];
 
-export function AdminShell({ children }: { children: React.ReactNode }) {
+export async function AdminShell({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const settings = await getStoreSettings();
+
   return (
     <div className="min-h-screen bg-[#f7f4f6] text-bloom-plum">
       <div className="border-b border-bloom-border bg-bloom-plum px-5 py-2 text-center text-[10px] font-semibold tracking-[0.16em] text-white/80 uppercase">
-        Handmade Blooms · Operations
+        {settings.businessName} · Operations
       </div>
 
       <div className="mx-auto grid min-h-[calc(100vh-2rem)] max-w-[1600px] lg:grid-cols-[230px_1fr]">
@@ -41,10 +51,10 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
           <div className="border-b border-bloom-border px-6 py-6">
             <Link href="/admin" className="block">
               <p className="font-display text-xl font-semibold tracking-[-0.03em]">
-                Handmade Blooms
+                {settings.businessName}
               </p>
               <p className="mt-1 text-[10px] font-semibold tracking-[0.16em] text-bloom-pink uppercase">
-                Admin
+                {settings.brandByline} · Admin
               </p>
             </Link>
           </div>

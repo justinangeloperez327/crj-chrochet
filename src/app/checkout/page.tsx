@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 
 import { CheckoutClient } from "@/components/store/checkout-client";
+import { getStoreSettings } from "@/lib/settings/store-settings";
 
 export const metadata: Metadata = {
   title: "Checkout",
-  description: "Checkout for Handmade Blooms by CRJ.",
+  description: "Secure checkout for Handmade Blooms.",
 };
 
 type CheckoutPageProps = {
@@ -14,6 +16,22 @@ type CheckoutPageProps = {
 export default async function CheckoutPage({
   searchParams,
 }: CheckoutPageProps) {
-  const params = await searchParams;
-  return <CheckoutClient cancelled={params.cancelled === "1"} />;
+  const [params, settings] = await Promise.all([
+    searchParams,
+    getStoreSettings(),
+  ]);
+
+  if (settings.maintenanceMode) {
+    redirect("/maintenance");
+  }
+
+  return (
+    <CheckoutClient
+      cancelled={params.cancelled === "1"}
+      businessName={settings.businessName}
+      brandByline={settings.brandByline}
+      currency={settings.defaultCurrency}
+      giftOrdersEnabled={settings.giftOrdersEnabled}
+    />
+  );
 }

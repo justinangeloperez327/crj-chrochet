@@ -4,9 +4,10 @@ import {
   reserveDiscountForOrder,
   resolveDiscount,
 } from "@/lib/discounts/discount-service";
-import { getDeliveryRate } from "@/lib/delivery/delivery-service";
+import { getDeliveryRateFromSettings } from "@/lib/delivery/delivery-service";
 import { requireDb } from "@/lib/db";
 import { createOrderNumber } from "@/lib/orders/order-number";
+import { getStoreSettings } from "@/lib/settings/store-settings";
 
 export type CheckoutLineInput = {
   productId: string;
@@ -108,7 +109,16 @@ export async function getOrderQuote(
 }
 
 export async function createPendingOrder(input: CreateOrderInput) {
-  validateOrderInput(input);
+  const settings = await getStoreSettings();
+
+  if (settings.maintenanceMode) {
+    throw new OrderCreationError(
+      "The store is temporarily unavailable for new checkout.",
+      503,
+    );
+  }
+
+  validateOrderInput(input, settings);
   const db = requireDb();
 
   return db.$transaction(
@@ -200,7 +210,10 @@ export async function createPendingOrder(input: CreateOrderInput) {
       let deliveryAmount: number;
 
       try {
-        deliveryAmount = getDeliveryRate(emirate);
+        deliveryAmount = getDeliveryRateFromSettings(
+          emirate,
+          settings,
+        );
       } catch {
         throw new OrderCreationError(
           "Delivery is not configured for the selected emirate.",
@@ -211,7 +224,10 @@ export async function createPendingOrder(input: CreateOrderInput) {
         subtotal - discountAmount + deliveryAmount,
       );
       const orderNumber = createOrderNumber();
-      const reservationExpiresAt = new Date(Date.now() + 45 * 60 * 1000);
+      const reservationExpiresAt = new Date(
+        Date.now() +
+          settings.checkoutReservationMinutes * 60 * 1000,
+      );
 
       const order = await tx.order.create({
         data: {
@@ -223,17 +239,19 @@ export async function createPendingOrder(input: CreateOrderInput) {
           status: "PENDING_PAYMENT",
           paymentStatus: "PENDING",
           fulfillmentStatus: "UNFULFILLED",
-          currency: "AED",
+          currency: settings.defaultCurrency,
           subtotal,
           discountAmount,
           discountEligibleSubtotal: discount.eligibleSubtotal,
           discountCodeSnapshot: discount.record?.code ?? null,
           deliveryAmount,
           total,
-          isGift: Boolean(input.isGift),
-          giftMessage: input.isGift
-            ? input.giftMessage?.trim() || null
-            : null,
+          isGift:
+            settings.giftOrdersEnabled && Boolean(input.isGift),
+          giftMessage:
+            settings.giftOrdersEnabled && input.isGift
+              ? input.giftMessage?.trim() || null
+              : null,
           orderNote: input.orderNote?.trim() || null,
           reservationExpiresAt,
           shippingAddress: {
@@ -462,7 +480,10 @@ function validateAndCalculateReservations(lines: ResolvedLine[]) {
   }
 }
 
-function validateOrderInput(input: CreateOrderInput) {
+function validateOrderInput(
+  input: CreateOrderInput,
+  settings: Awaited<ReturnType<typeof getStoreSettings>>,
+) {
   if (!input || typeof input !== "object") {
     throw new OrderCreationError("Invalid checkout request.");
   }
@@ -491,15 +512,27 @@ function validateOrderInput(input: CreateOrderInput) {
     );
   }
 
-  if (input.giftMessage && input.giftMessage.length > 240) {
+  if (input.isGift && !settings.giftOrdersEnabled) {
     throw new OrderCreationError(
-      "Gift messages must be 240 characters or fewer.",
+      "Gift orders are currently unavailable.",
     );
   }
 
-  if (input.orderNote && input.orderNote.length > 300) {
+  if (
+    input.giftMessage &&
+    input.giftMessage.length > settings.giftMessageMaxLength
+  ) {
     throw new OrderCreationError(
-      "Order notes must be 300 characters or fewer.",
+      `Gift messages must be ${settings.giftMessageMaxLength} characters or fewer.`,
+    );
+  }
+
+  if (
+    input.orderNote &&
+    input.orderNote.length > settings.orderNoteMaxLength
+  ) {
+    throw new OrderCreationError(
+      `Order notes must be ${settings.orderNoteMaxLength} characters or fewer.`,
     );
   }
 }

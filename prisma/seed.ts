@@ -178,6 +178,12 @@ const seedWrapOptions = [
 ] as const;
 
 async function main() {
+  await prisma.storeSettings.upsert({
+    where: { id: "primary" },
+    update: {},
+    create: { id: "primary" },
+  });
+
   const category = await prisma.category.upsert({
     where: { slug: "crochet-flowers" },
     update: {

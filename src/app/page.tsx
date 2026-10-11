@@ -14,6 +14,7 @@ import { SiteFooter } from "@/components/store/site-footer";
 import { SiteHeader } from "@/components/store/site-header";
 import { loadStorefrontProducts } from "@/lib/data/storefront-catalog";
 import { loadStorefrontCollections } from "@/lib/data/storefront-collections";
+import { getStoreSettings } from "@/lib/settings/store-settings";
 
 const occasions = [
   "Birthday",
@@ -25,10 +26,12 @@ const occasions = [
 ];
 
 export default async function Home() {
-  const [storefrontProducts, storefrontCollections] = await Promise.all([
-    loadStorefrontProducts(),
-    loadStorefrontCollections(),
-  ]);
+  const [storefrontProducts, storefrontCollections, settings] =
+    await Promise.all([
+      loadStorefrontProducts(),
+      loadStorefrontCollections(),
+      getStoreSettings(),
+    ]);
   const featuredProducts = storefrontProducts
     .filter((product) => product.featured)
     .slice(0, 4);
@@ -368,7 +371,7 @@ export default async function Home() {
             “A handmade flower lasts much longer than the moment it was given.”
           </blockquote>
           <p className="mt-6 text-xs font-semibold tracking-[0.16em] text-bloom-muted uppercase">
-            Handmade Blooms by CRJ
+            {settings.businessName} {settings.brandByline}
           </p>
         </section>
       </main>

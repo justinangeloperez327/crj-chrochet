@@ -12,7 +12,17 @@ import {
   useOrderPreferences,
 } from "@/lib/commerce-store";
 
-export function CartPageClient() {
+export function CartPageClient({
+  giftOrdersEnabled,
+  giftMessageMaxLength,
+  orderNoteMaxLength,
+  currency,
+}: {
+  giftOrdersEnabled: boolean;
+  giftMessageMaxLength: number;
+  orderNoteMaxLength: number;
+  currency: string;
+}) {
   const cart = useCart();
   const subtotal = useCartSubtotal();
   const savedPreferences = useOrderPreferences();
@@ -21,10 +31,24 @@ export function CartPageClient() {
   const [orderNote, setOrderNote] = useState("");
 
   useEffect(() => {
-    setIsGift(savedPreferences.isGift);
-    setGiftMessage(savedPreferences.giftMessage);
-    setOrderNote(savedPreferences.orderNote);
-  }, [savedPreferences]);
+    setIsGift(giftOrdersEnabled && savedPreferences.isGift);
+    setGiftMessage(
+      giftOrdersEnabled
+        ? savedPreferences.giftMessage.slice(
+            0,
+            giftMessageMaxLength,
+          )
+        : "",
+    );
+    setOrderNote(
+      savedPreferences.orderNote.slice(0, orderNoteMaxLength),
+    );
+  }, [
+    giftMessageMaxLength,
+    giftOrdersEnabled,
+    orderNoteMaxLength,
+    savedPreferences,
+  ]);
 
   function persistPreferences(next?: Partial<typeof savedPreferences>) {
     setOrderPreferences({
@@ -95,6 +119,7 @@ export function CartPageClient() {
           </div>
 
           <div className="mt-10 grid gap-5 sm:grid-cols-2">
+            {giftOrdersEnabled ? (
             <section className="border border-bloom-border bg-white p-5">
               <div className="flex items-center gap-3">
                 <Gift className="size-4 text-bloom-pink" />
@@ -131,7 +156,7 @@ export function CartPageClient() {
                   <textarea
                     id="gift-message"
                     rows={4}
-                    maxLength={240}
+                    maxLength={giftMessageMaxLength}
                     value={giftMessage}
                     onChange={(event) => setGiftMessage(event.target.value)}
                     onBlur={() => persistPreferences()}
@@ -139,7 +164,7 @@ export function CartPageClient() {
                     className="mt-2 w-full resize-none border border-bloom-border bg-background px-3 py-3 text-sm text-bloom-plum outline-none placeholder:text-bloom-muted/70 focus:border-bloom-violet"
                   />
                   <p className="mt-1 text-right text-[10px] text-bloom-muted">
-                    {giftMessage.length}/240
+                    {giftMessage.length}/{giftMessageMaxLength}
                   </p>
                 </div>
               ) : (
@@ -148,6 +173,7 @@ export function CartPageClient() {
                 </p>
               )}
             </section>
+            ) : null}
 
             <section className="border border-bloom-border bg-white p-5">
               <label
@@ -162,7 +188,7 @@ export function CartPageClient() {
               <textarea
                 id="order-note"
                 rows={4}
-                maxLength={300}
+                maxLength={orderNoteMaxLength}
                 value={orderNote}
                 onChange={(event) => setOrderNote(event.target.value)}
                 onBlur={() => persistPreferences()}
@@ -183,7 +209,7 @@ export function CartPageClient() {
               <div className="flex justify-between gap-4">
                 <span className="text-bloom-muted">Subtotal</span>
                 <span className="font-semibold text-bloom-plum">
-                  AED {subtotal}
+                  {currency} {subtotal}
                 </span>
               </div>
               <div className="flex justify-between gap-4">
@@ -199,7 +225,7 @@ export function CartPageClient() {
                 Current total
               </span>
               <span className="text-2xl font-semibold text-bloom-plum">
-                AED {subtotal}
+                {currency} {subtotal}
               </span>
             </div>
 

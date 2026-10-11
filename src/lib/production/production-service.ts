@@ -1,5 +1,6 @@
 import type { Prisma } from "@/generated/prisma/client";
 import { requireDb } from "@/lib/db";
+import { getStoreSettingsFromTransaction } from "@/lib/settings/store-settings";
 
 type Transaction = Prisma.TransactionClient;
 
@@ -129,6 +130,7 @@ export async function ensureProductionJobForOrder(
       : null;
 
   const mapped = mapOrderStatus(order.status);
+  const settings = await getStoreSettingsFromTransaction(tx);
 
   return tx.productionJob.upsert({
     where: { orderId: order.id },
@@ -151,6 +153,9 @@ export async function ensureProductionJobForOrder(
     create: {
       orderId: order.id,
       status: mapped.status,
+      priority: settings.productionDefaultPriority,
+      assignedTo: settings.productionDefaultAssignee,
+      plannedMinutes: settings.productionDefaultMinutes,
       dueAt,
       startedAt: mapped.started ? new Date() : null,
       qualityStartedAt: mapped.quality ? new Date() : null,

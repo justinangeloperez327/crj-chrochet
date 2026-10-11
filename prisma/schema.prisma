@@ -171,6 +171,43 @@ enum ProductionJobStatus {
   CANCELLED
 }
 
+model StoreSettings {
+  id                         String             @id @default("primary")
+  businessName               String             @default("Handmade Blooms")
+  brandByline                String             @default("by CRJ")
+  tagline                    String             @default("Crochet flowers made stitch by stitch for moments worth keeping.")
+  supportEmail               String?
+  supportPhone               String?
+  instagramUrl               String?
+  facebookUrl                String?
+  tiktokUrl                  String?
+  whatsappUrl                String?
+  announcementEnabled        Boolean            @default(true)
+  announcementText           String             @default("Handmade slowly · Gifted meaningfully")
+  maintenanceMode            Boolean            @default(false)
+  maintenanceMessage         String             @default("We’re refreshing the flower shop. Please check back shortly.")
+  defaultCurrency            String             @default("AED")
+  giftOrdersEnabled          Boolean            @default(true)
+  giftMessageMaxLength       Int                @default(240)
+  orderNoteMaxLength         Int                @default(300)
+  checkoutReservationMinutes Int                @default(45)
+  deliveryFlatRate           Decimal?           @db.Decimal(10, 2)
+  deliveryAbuDhabi           Decimal?           @db.Decimal(10, 2)
+  deliveryDubai              Decimal?           @db.Decimal(10, 2)
+  deliverySharjah            Decimal?           @db.Decimal(10, 2)
+  deliveryAjman              Decimal?           @db.Decimal(10, 2)
+  deliveryUmmAlQuwain        Decimal?           @db.Decimal(10, 2)
+  deliveryRasAlKhaimah       Decimal?           @db.Decimal(10, 2)
+  deliveryFujairah           Decimal?           @db.Decimal(10, 2)
+  productionDefaultPriority  ProductionPriority @default(NORMAL)
+  productionDefaultMinutes   Int?
+  productionDefaultAssignee  String?
+  seoTitle                   String             @default("Handmade Blooms by CRJ")
+  seoDescription             String             @default("Handmade crochet flowers and bouquets, crafted one stitch at a time.")
+  createdAt                  DateTime           @default(now())
+  updatedAt                  DateTime           @updatedAt
+}
+
 model Category {
   id          String    @id @default(cuid())
   name        String

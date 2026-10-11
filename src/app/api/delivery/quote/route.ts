@@ -17,7 +17,7 @@ export async function POST(request: Request) {
     return NextResponse.json({
       quote: {
         emirate,
-        amount: getDeliveryRate(emirate),
+        amount: await getDeliveryRate(emirate),
         currency: "AED",
       },
     });

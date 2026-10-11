@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, BarChart3, Boxes, Flower2, ShoppingBag, Users } from "lucide-react";
+import { ArrowRight, BarChart3, Boxes, Flower2, Settings2, ShoppingBag, Users } from "lucide-react";
 
 import { DatabaseRequired } from "@/components/admin/database-required";
 import { StatusBadge } from "@/components/admin/status-badge";
@@ -54,6 +54,13 @@ export default async function AdminDashboardPage() {
           >
             Customers
             <Users className="size-3.5" />
+          </Link>
+          <Link
+            href="/admin/settings"
+            className="inline-flex h-10 items-center gap-2 border border-bloom-border bg-white px-4 text-xs font-semibold text-bloom-plum"
+          >
+            Settings
+            <Settings2 className="size-3.5" />
           </Link>
           <Link
             href="/admin/reports"

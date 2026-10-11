@@ -3,6 +3,7 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import Stripe from "stripe";
 
 import { requireDb } from "@/lib/db";
+import { getStoreSettings } from "@/lib/settings/store-settings";
 
 let stripeClient: Stripe | null = null;
 
@@ -33,6 +34,8 @@ export async function createStripeCheckoutSession(orderId: string) {
   if (!appUrl) throw new Error("APP_URL is not configured.");
 
   const stripe = getStripe();
+  const settings = await getStoreSettings();
+  const brand = `${settings.businessName} ${settings.brandByline}`.trim();
   const cancelSignature = signCheckoutReturn(order.id);
   const expiresAt =
     order.reservationExpiresAt ??
@@ -62,7 +65,7 @@ export async function createStripeCheckoutSession(orderId: string) {
           currency: order.currency.toLowerCase(),
           unit_amount: Math.round(Number(order.total) * 100),
           product_data: {
-            name: `Handmade Blooms order ${order.orderNumber}`,
+            name: `${brand} order ${order.orderNumber}`,
             description: `${order.items.length} handmade bloom selection${order.items.length === 1 ? "" : "s"} including delivery`,
           },
         },

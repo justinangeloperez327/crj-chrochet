@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import type { Prisma } from "@/generated/prisma/client";
 import { getCurrentSession } from "@/lib/auth/session";
 import { requireDb } from "@/lib/db";
+import { getStoreSettings } from "@/lib/settings/store-settings";
 
 export type BouquetSelectionInput = {
   stemOptionId: string;
@@ -77,7 +78,16 @@ export async function quoteBouquet(
 export async function createBouquetRequest(
   input: CreateBouquetRequestInput,
 ) {
-  validateInput(input);
+  const settings = await getStoreSettings();
+
+  if (settings.maintenanceMode) {
+    throw new BouquetRequestError(
+      "The store is temporarily unavailable for new custom requests.",
+      503,
+    );
+  }
+
+  validateInput(input, settings);
   const db = requireDb();
   const session = await getCurrentSession();
 
@@ -348,7 +358,10 @@ function normalizeSelections(selections: BouquetSelectionInput[]) {
   }));
 }
 
-function validateInput(input: CreateBouquetRequestInput) {
+function validateInput(
+  input: CreateBouquetRequestInput,
+  settings: Awaited<ReturnType<typeof getStoreSettings>>,
+) {
   if (!input || typeof input !== "object") {
     throw new BouquetRequestError("Invalid bouquet request.");
   }
@@ -367,9 +380,18 @@ function validateInput(input: CreateBouquetRequestInput) {
     throw new BouquetRequestError("Enter your name.");
   }
 
-  if (input.giftMessage && input.giftMessage.length > 240) {
+  if (input.giftMessage && !settings.giftOrdersEnabled) {
     throw new BouquetRequestError(
-      "Gift messages must be 240 characters or fewer.",
+      "Gift messages are currently unavailable.",
+    );
+  }
+
+  if (
+    input.giftMessage &&
+    input.giftMessage.length > settings.giftMessageMaxLength
+  ) {
+    throw new BouquetRequestError(
+      `Gift messages must be ${settings.giftMessageMaxLength} characters or fewer.`,
     );
   }
 
