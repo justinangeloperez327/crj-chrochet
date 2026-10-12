@@ -105,9 +105,11 @@ export async function createBouquetRequest(
     } else {
       const customer = await tx.customer.findUnique({
         where: { email: input.email.trim().toLowerCase() },
-        select: { id: true },
+        select: { id: true, userId: true },
       });
-      customerId = customer?.id ?? null;
+      // A matching unverified email cannot grant an anonymous guest
+      // access to a registered customer's private commerce profile.
+      customerId = customer && !customer.userId ? customer.id : null;
     }
 
     const requestEmail =
