@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "engines": {
-    "node": ">=20.19.0"
+    "node": "24.x"
   },
   "scripts": {
     "dev": "next dev",
@@ -57,5 +57,11 @@
   "overrides": {
     "deepmerge-ts": "8.0.2",
     "mysql2": "3.24.0"
+  },
+  "allowScripts": {
+    "@prisma/engines@7.10.0": true,
+    "esbuild@0.28.2": true,
+    "prisma@7.10.0": true,
+    "unrs-resolver@1.12.2": true
   }
 }

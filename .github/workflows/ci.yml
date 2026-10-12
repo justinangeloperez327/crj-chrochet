@@ -19,6 +19,8 @@ jobs:
         with:
           node-version: "24"
           cache: npm
+      - name: Use npm with install-script policy
+        run: npm install --global npm@12.2.0 --ignore-scripts --no-audit --no-fund
       - name: Install locked dependencies
         run: npm ci --no-audit --no-fund
       - name: Validate Prisma schema
@@ -68,6 +70,8 @@ jobs:
         with:
           node-version: "24"
           cache: npm
+      - name: Use npm with install-script policy
+        run: npm install --global npm@12.2.0 --ignore-scripts --no-audit --no-fund
       - run: npm ci --no-audit --no-fund
       - name: Apply real SQL migrations to disposable PostgreSQL
         run: npm run db:deploy
