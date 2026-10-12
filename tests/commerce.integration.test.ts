@@ -1,12 +1,13 @@
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { test } from "node:test";
+import { test, mock } from "node:test";
 import type Stripe from "stripe";
 import { requireDb } from "../src/lib/db";
 import { expireStripeCheckout, markOrderPaidFromStripe, markStripePaymentFailed } from "../src/lib/orders/order-lifecycle";
 import { updateDeliveryFulfillment } from "../src/lib/orders/fulfillment-service";
 import { syncStripeRefund } from "../src/lib/payments/refund-service";
 import { getOrderQuote } from "../src/lib/orders/order-service";
+import { getStripe, createStripeCheckoutSession } from "../src/lib/payments/stripe";
 import { enforceAuthRate } from "../src/lib/auth/security";
 
 function testDb() {
@@ -91,6 +92,46 @@ test("quote prices come from database and invalid quantities are rejected", asyn
   try {
     assert.equal((await getOrderQuote([{ productId: f.product.id, variantSku: f.variant.sku, quantity: 2 }])).total, 200);
     await assert.rejects(getOrderQuote([{ productId: f.product.id, variantSku: f.variant.sku, quantity: -1 }]));
+  } finally { await f.cleanup(); }
+});
+
+
+test("Stripe Checkout contract uses persisted total and idempotency, with one local attempt", async () => {
+  const f = await fixture();
+  const previous = { key: process.env.STRIPE_SECRET_KEY, app: process.env.APP_URL, secret: process.env.CHECKOUT_RETURN_SECRET };
+  process.env.STRIPE_SECRET_KEY = "sk_test_contract_fixture";
+  process.env.APP_URL = "https://store.example";
+  process.env.CHECKOUT_RETURN_SECRET = "contract-only-long-return-secret";
+  const stripe = getStripe();
+  mock.method(stripe.checkout.sessions, "create", async (params: Stripe.Checkout.SessionCreateParams, options: Stripe.RequestOptions) => {
+    assert.equal(params.line_items?.[0].price_data?.unit_amount, 20000);
+    assert.equal(params.line_items?.[0].price_data?.currency, "aed");
+    assert.equal(params.metadata?.orderId, f.order.id);
+    assert.equal(options.idempotencyKey, "checkout/" + f.order.id);
+    return { id: "cs_contract_" + f.order.id, url: "https://checkout.stripe.com/test", expires_at: Math.floor(Date.now() / 1000) + 2700 };
+  });
+  try {
+    const sessions = await Promise.all([createStripeCheckoutSession(f.order.id), createStripeCheckoutSession(f.order.id)]);
+    assert.equal(sessions[0].id, sessions[1].id);
+    assert.equal(await f.db.paymentAttempt.count({ where: { externalId: sessions[0].id } }), 1);
+    await assert.rejects(markOrderPaidFromStripe(sessions[0].id, null, { amountTotal: 1, currency: "aed" }), /amount or currency/);
+    assert.equal((await f.db.order.findUniqueOrThrow({ where: { id: f.order.id } })).paymentStatus, "PENDING");
+  } finally {
+    mock.restoreAll();
+    for (const [name, value] of [["STRIPE_SECRET_KEY", previous.key], ["APP_URL", previous.app], ["CHECKOUT_RETURN_SECRET", previous.secret]]) {
+      if (value === undefined) delete process.env[name!]; else process.env[name!] = value;
+    }
+    await f.cleanup();
+  }
+});
+
+test("failed payment callbacks release reservations once", async () => {
+  const f = await fixture();
+  try {
+    await Promise.all([markStripePaymentFailed(f.externalId), markStripePaymentFailed(f.externalId)]);
+    assert.equal((await f.db.order.findUniqueOrThrow({ where: { id: f.order.id } })).status, "CANCELLED");
+    assert.equal((await f.db.productVariant.findUniqueOrThrow({ where: { id: f.variant.id } })).stockReserved, 0);
+    assert.equal(await f.db.inventoryMovement.count({ where: { orderId: f.order.id, type: "RELEASE" } }), 1);
   } finally { await f.cleanup(); }
 });
 

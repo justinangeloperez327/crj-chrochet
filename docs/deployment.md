@@ -148,7 +148,8 @@ vercel deploy --prod
 Then run `SMOKE_URL=https://YOUR_DOMAIN SMOKE_REQUIRE_READY=1 npm run smoke`.
 Create your actual products, materials, recipes and delivery rates in admin.
 Do not run `db:seed` against production; a local shell lacking `NODE_ENV` can
-still point at production, so review `DATABASE_URL` before any seed command.
+still point at production. Seeding additionally requires `ALLOW_DEMO_SEED=true`;
+leave that unset in production and review `DATABASE_URL` before any seed command.
 
 ## Monitoring and rollback
 

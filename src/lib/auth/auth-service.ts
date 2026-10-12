@@ -23,15 +23,15 @@ export async function registerCustomer(input: {
   const email = input.email.trim().toLowerCase();
   validateRegistration(name, email, input.password);
 
+  assertAuthEmailConfigured();
+  const passwordHash = await hashPassword(input.password);
   const existingUser = await db.user.findUnique({ where: { email } });
 
   if (existingUser) {
-    return existingUser;
+    return;
   }
 
   // Email ownership must be verified before sessions or guest order claims.
-  assertAuthEmailConfigured();
-  const passwordHash = await hashPassword(input.password);
   const user = await db.user.create({
     data: { email, name, passwordHash, role: "CUSTOMER" },
   });
@@ -45,7 +45,9 @@ export async function loginWithPassword(emailInput: string, password: string) {
 
   const user = await db.user.findUnique({ where: { email } });
 
+  if (password.length > 200) throw new AuthError("Invalid email or password.", "INVALID_CREDENTIALS");
   if (!user) {
+    await verifyPassword(password, "scrypt$16384$8$1$" + "0".repeat(32) + "$" + "0".repeat(128));
     throw new AuthError("Invalid email or password.", "INVALID_CREDENTIALS");
   }
 
@@ -73,7 +75,7 @@ function validateRegistration(name: string, email: string, password: string) {
     throw new AuthError("Enter your full name.", "INVALID_NAME");
   }
 
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+  if (email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     throw new AuthError("Enter a valid email address.", "INVALID_EMAIL");
   }
 

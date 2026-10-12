@@ -41,3 +41,19 @@ test("production never renders development catalogue without a database", async 
     else process.env.DATABASE_URL = previousDb;
   }
 });
+
+import { parseCart } from "../src/lib/commerce-store";
+
+test("corrupt persisted carts fail closed", () => {
+  for (const raw of ["null", "{}", "invalid", "[null]", '[{"productId":"x","name":"x","variant":"x","quantity":-1,"unitPrice":10}]']) assert.deepEqual(parseCart(raw), []);
+});
+
+import { matchesImageType } from "../src/lib/media/image-validation";
+
+test("upload signatures reject executable content disguised as images", () => {
+  const html = Buffer.from("<svg onload=alert(1)></svg>");
+  for (const type of ["image/jpeg", "image/png", "image/webp", "image/avif"]) assert.equal(matchesImageType(html, type), false);
+  assert.equal(matchesImageType(Buffer.from([0xff, 0xd8, 0xff, 0]), "image/jpeg"), true);
+  assert.equal(matchesImageType(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), "image/png"), true);
+  assert.equal(matchesImageType(Buffer.from("RIFF0000WEBP"), "image/webp"), true);
+});

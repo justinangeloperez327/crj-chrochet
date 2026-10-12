@@ -1,25 +1,25 @@
 import { expect, test } from "@playwright/test";
-import { randomBytes } from "node:crypto";
-import { PrismaPg } from "@prisma/adapter-pg";
-import { PrismaClient } from "../../src/generated/prisma/client";
+import { randomBytes, randomUUID, createHash } from "node:crypto";
+import { Pool } from "pg";
 import { hashPassword } from "../../src/lib/auth/password";
-import { hashAuthToken } from "../../src/lib/auth/email-tokens";
 
 const email = "e2e-customer@example.invalid";
 const password = "e2e isolated customer password";
-const db = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL! }) });
+const db = new Pool({ connectionString: process.env.DATABASE_URL });
 
 test.beforeAll(async () => {
   expect(new URL(process.env.DATABASE_URL!).pathname).toBe("/crj_test");
-  await db.user.upsert({ where: { email }, update: { passwordHash: await hashPassword(password), emailVerifiedAt: new Date() }, create: {
-    email, passwordHash: await hashPassword(password), name: "Browser Test Customer", emailVerifiedAt: new Date(),
-    customer: { create: { email, firstName: "Browser", lastName: "Customer" } },
-  } });
+  const userId = randomUUID();
+  await db.query(`INSERT INTO "User" (id,email,"passwordHash",name,"emailVerifiedAt","updatedAt") VALUES ($1,$2,$3,$4,NOW(),NOW())
+    ON CONFLICT(email) DO UPDATE SET "passwordHash"=EXCLUDED."passwordHash", "emailVerifiedAt"=NOW()`, [userId,email,await hashPassword(password),"Browser Test Customer"]);
+  const user = (await db.query<{ id: string }>('SELECT id FROM "User" WHERE email=$1', [email])).rows[0];
+  await db.query(`INSERT INTO "Customer" (id,"userId",email,"firstName","lastName","updatedAt") VALUES ($1,$2,$3,$4,$5,NOW())
+    ON CONFLICT(email) DO NOTHING`, [randomUUID(),user.id,email,"Browser","Customer"]);
 });
 test.afterAll(async () => {
-  const user = await db.user.findUnique({ where: { email } });
-  if (user) { await db.customer.deleteMany({ where: { userId: user.id } }); await db.user.delete({ where: { id: user.id } }); }
-  await db.$disconnect();
+  await db.query('DELETE FROM "Customer" WHERE email=$1', [email]);
+  await db.query('DELETE FROM "User" WHERE email=$1', [email]);
+  await db.end();
 });
 
 test("storefront routes render and catalogue cart persists", async ({ page }) => {
@@ -75,9 +75,9 @@ test("password reset revokes browser session", async ({ page, request }) => {
   await page.getByLabel("Password", { exact: true }).fill(password);
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
   await expect(page).toHaveURL(/\/account$/);
-  const user = await db.user.findUniqueOrThrow({ where: { email } });
+  const user = (await db.query<{ id: string }>('SELECT id FROM "User" WHERE email=$1', [email])).rows[0];
   const token = randomBytes(32).toString("base64url");
-  await db.authToken.create({ data: { userId: user.id, tokenHash: hashAuthToken(token), type: "PASSWORD_RESET", expiresAt: new Date(Date.now() + 600000) } });
+  await db.query('INSERT INTO "AuthToken" (id,"userId","tokenHash",type,"expiresAt") VALUES ($1,$2,$3,$4,$5)', [randomUUID(),user.id,createHash("sha256").update(token).digest("hex"),"PASSWORD_RESET",new Date(Date.now() + 600000)]);
   const response = await request.post("/api/auth/reset", { headers: { origin: "http://127.0.0.1:3000" }, form: { token, password: "new secure e2e test password" }, maxRedirects: 0 });
   expect(response.status()).toBe(303);
   await page.goto("/account");

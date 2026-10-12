@@ -37,7 +37,7 @@ const defaultPreferences: OrderPreferences = {
 
 function readRaw(key: string, fallback: string) {
   if (typeof window === "undefined") return fallback;
-  return window.localStorage.getItem(key) ?? fallback;
+  try { return window.localStorage.getItem(key) ?? fallback; } catch { return fallback; }
 }
 
 function writeRaw(key: string, value: string) {
@@ -47,10 +47,21 @@ function writeRaw(key: string, value: string) {
 
 function readCart() {
   try {
-    return JSON.parse(readRaw(CART_KEY, "[]")) as CartLine[];
+    return parseCart(readRaw(CART_KEY, "[]"));
   } catch {
     return [];
   }
+}
+
+export function parseCart(raw: string): CartLine[] {
+  try {
+    const value: unknown = JSON.parse(raw);
+    if (!Array.isArray(value)) return [];
+    return value.filter((line): line is CartLine => line !== null && typeof line === "object" &&
+      typeof line.productId === "string" && typeof line.name === "string" && typeof line.variant === "string" &&
+      Number.isInteger(line.quantity) && line.quantity > 0 && line.quantity <= 99 &&
+      typeof line.unitPrice === "number" && Number.isFinite(line.unitPrice) && line.unitPrice >= 0).slice(0, 100);
+  } catch { return []; }
 }
 
 function subscribe(callback: () => void) {
@@ -188,7 +199,7 @@ export function useCart() {
 
   return useMemo(() => {
     try {
-      return JSON.parse(raw) as CartLine[];
+      return parseCart(raw);
     } catch {
       return [];
     }

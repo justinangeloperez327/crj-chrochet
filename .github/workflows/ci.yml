@@ -60,6 +60,7 @@ jobs:
       ADMIN_EMAIL: ci-admin@example.invalid
       ADMIN_PASSWORD: ci-only-not-for-production-2026
       ADMIN_NAME: CI Admin
+      ALLOW_DEMO_SEED: "true"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

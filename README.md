@@ -20,7 +20,7 @@ cp .env.example .env
 # Edit .env and set DATABASE_URL and applicable service keys.
 npm run db:generate
 npm run db:deploy
-npm run db:seed
+ALLOW_DEMO_SEED=true npm run db:seed
 npm run dev
 ```
 

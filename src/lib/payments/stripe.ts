@@ -78,8 +78,10 @@ export async function createStripeCheckoutSession(orderId: string) {
   }
 
   try {
-    await db.paymentAttempt.create({
-      data: {
+    await db.paymentAttempt.upsert({
+      where: { externalId: session.id },
+      update: {},
+      create: {
         orderId: order.id,
         provider: "STRIPE",
         externalId: session.id,
