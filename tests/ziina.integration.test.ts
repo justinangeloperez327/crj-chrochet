@@ -105,3 +105,28 @@ test("Ziina refunds retain original test mode and support partial then full canc
     assert.equal((await f.db.productVariant.findUniqueOrThrow({ where: { id: f.variant.id } })).stockReserved, 0);
   } finally { restore(); await f.cleanup(); }
 });
+
+test("verified Ziina failure and cancellation release inventory exactly once", async () => {
+  const restore = configure();
+  try {
+    for (const status of ["failed", "canceled"]) {
+      const f = await fixture();
+      mock.method(globalThis, "fetch", async () => Response.json({ id: f.externalId, account_id: "fixture-merchant", amount: 20000, currency_code: "AED", status }));
+      try {
+        await Promise.all([reconcileZiinaIntent(f.externalId), reconcileZiinaIntent(f.externalId)]);
+        assert.equal((await f.db.order.findUniqueOrThrow({ where: { id: f.order.id } })).status, "CANCELLED");
+        assert.equal((await f.db.productVariant.findUniqueOrThrow({ where: { id: f.variant.id } })).stockReserved, 0);
+        assert.equal(await f.db.inventoryMovement.count({ where: { orderId: f.order.id, type: "RELEASE" } }), 1);
+      } finally { mock.restoreAll(); await f.cleanup(); }
+    }
+  } finally { restore(); }
+});
+test("Ziina payment money mismatch never marks an order paid", async () => {
+  const restore = configure(); const f = await fixture();
+  mock.method(globalThis, "fetch", async () => Response.json({ id: f.externalId, account_id: "fixture-merchant", amount: 1, currency_code: "AED", status: "completed" }));
+  try {
+    await assert.rejects(reconcileZiinaIntent(f.externalId), /amount or currency/);
+    assert.equal((await f.db.order.findUniqueOrThrow({ where: { id: f.order.id } })).paymentStatus, "PENDING");
+    assert.equal((await f.db.productVariant.findUniqueOrThrow({ where: { id: f.variant.id } })).stockReserved, 2);
+  } finally { restore(); await f.cleanup(); }
+});
