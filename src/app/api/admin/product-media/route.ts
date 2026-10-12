@@ -1,3 +1,4 @@
+import { sameOriginForm } from "@/lib/auth/security";
 import { del, put } from "@vercel/blob";
 import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
@@ -17,6 +18,7 @@ const ALLOWED_TYPES = new Set([
 ]);
 
 export async function POST(request: Request) {
+  if (!sameOriginForm(request)) return new Response("Forbidden", { status: 403 });
   const auth = await adminSession();
   if (auth instanceof NextResponse) return auth;
 
@@ -138,6 +140,7 @@ export async function POST(request: Request) {
 }
 
 export async function PATCH(request: Request) {
+  if (!sameOriginForm(request)) return new Response("Forbidden", { status: 403 });
   const auth = await adminSession();
   if (auth instanceof NextResponse) return auth;
 
@@ -214,6 +217,7 @@ export async function PATCH(request: Request) {
 }
 
 export async function DELETE(request: Request) {
+  if (!sameOriginForm(request)) return new Response("Forbidden", { status: 403 });
   const auth = await adminSession();
   if (auth instanceof NextResponse) return auth;
 

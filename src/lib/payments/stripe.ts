@@ -71,7 +71,7 @@ export async function createStripeCheckoutSession(orderId: string) {
         },
       },
     ],
-  });
+  }, { idempotencyKey: `checkout/${order.id}` });
 
   if (!session.url) {
     throw new Error("Stripe did not return a Checkout URL.");
@@ -117,6 +117,7 @@ export function verifyCheckoutReturn(
   orderId: string,
   signature: string,
 ) {
+  if (!/^[a-f0-9]{64}$/.test(signature)) return false;
   const expected = signCheckoutReturn(orderId);
   const left = Buffer.from(expected, "hex");
   const right = Buffer.from(signature, "hex");

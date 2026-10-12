@@ -104,6 +104,7 @@ export const loadStorefrontCollectionBySlug = cache(
 );
 
 function fallbackCollections(): StorefrontCollection[] {
+  if (process.env.NODE_ENV === "production") return [];
   return fallbackDefinitions.map((definition) => {
     const collectionProducts = definition.productSlugs.flatMap((slug) => {
       const product = fallbackProducts.find((item) => item.slug === slug);

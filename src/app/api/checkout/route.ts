@@ -1,3 +1,4 @@
+import { sameOriginForm } from "@/lib/auth/security";
 import { NextResponse } from "next/server";
 import { enforceAuthRate } from "@/lib/auth/security";
 
@@ -14,10 +15,12 @@ import { createStripeCheckoutSession } from "@/lib/payments/stripe";
 export const runtime = "nodejs";
 
 export async function POST(request: Request) {
+  if (!sameOriginForm(request)) return new Response("Forbidden", { status: 403 });
   let orderId: string | null = null;
 
   try {
     const input = (await request.json()) as CreateOrderInput;
+    if (!input || typeof input !== "object") throw new OrderCreationError("Invalid checkout request.");
     await enforceAuthRate(request, "checkout", String(input.email ?? ""), 20);
     const order = await createPendingOrder(input);
     orderId = order.id;

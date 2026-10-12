@@ -1,3 +1,4 @@
+import { sameOriginForm } from "@/lib/auth/security";
 import { NextResponse } from "next/server";
 
 import {
@@ -13,6 +14,7 @@ type Props = {
 };
 
 export async function POST(request: Request, { params }: Props) {
+  if (!sameOriginForm(request)) return new Response("Forbidden", { status: 403 });
   const { token } = await params;
 
   try {

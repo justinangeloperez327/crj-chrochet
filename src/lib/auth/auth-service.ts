@@ -26,7 +26,7 @@ export async function registerCustomer(input: {
   const existingUser = await db.user.findUnique({ where: { email } });
 
   if (existingUser) {
-    throw new AuthError("An account already exists for this email.", "EMAIL_EXISTS");
+    return existingUser;
   }
 
   // Email ownership must be verified before sessions or guest order claims.

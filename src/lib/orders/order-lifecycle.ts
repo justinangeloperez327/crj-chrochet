@@ -1,25 +1,27 @@
+import { getStripe } from "@/lib/payments/stripe";
 import type { Prisma } from "@/generated/prisma/client";
 import {
   consumeDiscountReservationForPaidOrder,
   releaseDiscountReservationForOrder,
 } from "@/lib/discounts/discount-service";
-import { requireDb } from "@/lib/db";
+import { requireDb, runTransaction } from "@/lib/db";
 import { releaseCustomBouquetForOrder } from "@/lib/materials/material-service";
 import { ensureProductionJobForOrder } from "@/lib/production/production-service";
 
 export async function markOrderPaidFromStripe(
   externalId: string,
   paymentIntentId?: string | null,
+  payment?: { amountTotal: number | null; currency: string | null },
 ) {
-  const db = requireDb();
 
-  return db.$transaction(async (tx) => {
+  return runTransaction(async (tx) => {
     const attempt = await tx.paymentAttempt.findUnique({
       where: { externalId },
       include: { order: true },
     });
 
     if (!attempt) return null;
+    if (payment && (payment.amountTotal !== Math.round(Number(attempt.amount) * 100) || payment.currency?.toLowerCase() !== attempt.currency.toLowerCase())) throw new Error("Stripe payment amount or currency mismatch.");
 
     if (
       ["PAID", "PARTIALLY_REFUNDED", "REFUNDED"].includes(
@@ -44,6 +46,8 @@ export async function markOrderPaidFromStripe(
       await ensureProductionJobForOrder(tx, attempt.orderId);
       return attempt.order;
     }
+
+    if (attempt.order.status === "CANCELLED") throw new Error("Payment received for a cancelled order; manual reconciliation required.");
 
     const paidAt = new Date();
     const nextStatus =
@@ -100,13 +104,12 @@ export async function markOrderPaidFromStripe(
     });
 
     return order;
-  });
+  }, { isolationLevel: "Serializable" });
 }
 
 export async function markStripePaymentFailed(externalId: string) {
-  const db = requireDb();
 
-  return db.$transaction(async (tx) => {
+  return runTransaction(async (tx) => {
     const attempt = await tx.paymentAttempt.findUnique({
       where: { externalId },
       include: { order: true },
@@ -133,9 +136,12 @@ export async function markStripePaymentFailed(externalId: string) {
       data: { status: "FAILED" },
     });
 
+    await releaseReadyStockReservationsForOrder(tx, attempt.orderId, "Payment failed");
+    await releaseCustomBouquetForOrder(tx, attempt.orderId, "Payment failed");
+    await releaseDiscountReservationForOrder(tx, attempt.orderId);
     const order = await tx.order.update({
       where: { id: attempt.orderId },
-      data: { paymentStatus: "FAILED" },
+      data: { paymentStatus: "FAILED", status: "CANCELLED", fulfillmentStatus: "CANCELLED", reservationExpiresAt: null },
     });
 
     await tx.notificationOutbox.create({
@@ -153,13 +159,12 @@ export async function markStripePaymentFailed(externalId: string) {
     });
 
     return order;
-  });
+  }, { isolationLevel: "Serializable" });
 }
 
 export async function expireStripeCheckout(externalId: string) {
-  const db = requireDb();
 
-  return db.$transaction(async (tx) => {
+  return runTransaction(async (tx) => {
     const attempt = await tx.paymentAttempt.findUnique({
       where: { externalId },
       include: { order: true },
@@ -167,17 +172,14 @@ export async function expireStripeCheckout(externalId: string) {
 
     if (!attempt) return null;
 
-    await tx.paymentAttempt.update({
-      where: { id: attempt.id },
-      data: { status: "EXPIRED" },
-    });
-
     if (
-      attempt.order.paymentStatus === "PAID" ||
+      ["PAID", "PARTIALLY_REFUNDED", "REFUNDED"].includes(attempt.order.paymentStatus) ||
       attempt.order.status !== "PENDING_PAYMENT"
     ) {
       return attempt.order;
     }
+
+    await tx.paymentAttempt.update({ where: { id: attempt.id }, data: { status: "EXPIRED" } });
 
     await releaseReadyStockReservationsForOrder(
       tx,
@@ -199,16 +201,15 @@ export async function expireStripeCheckout(externalId: string) {
         reservationExpiresAt: null,
       },
     });
-  });
+  }, { isolationLevel: "Serializable" });
 }
 
 export async function cancelPendingOrder(
   orderId: string,
   note = "Pending order cancelled",
 ) {
-  const db = requireDb();
 
-  return db.$transaction(async (tx) => {
+  return runTransaction(async (tx) => {
     const order = await tx.order.findUnique({ where: { id: orderId } });
 
     if (!order || order.status !== "PENDING_PAYMENT") return order;
@@ -233,7 +234,7 @@ export async function cancelPendingOrder(
         reservationExpiresAt: null,
       },
     });
-  });
+  }, { isolationLevel: "Serializable" });
 }
 
 export async function releaseExpiredReservations(limit = 50) {
@@ -252,11 +253,23 @@ export async function releaseExpiredReservations(limit = 50) {
   let released = 0;
 
   for (const { id } of expired) {
-    const result = await cancelPendingOrder(
-      id,
-      "Released by reservation-expiry maintenance",
-    );
-    if (result?.status === "CANCELLED") released += 1;
+    const attempt = await db.paymentAttempt.findFirst({ where: { orderId: id, provider: "STRIPE" }, orderBy: { createdAt: "desc" } });
+    if (attempt) {
+      // Local expiry is not proof of payment failure. Reconcile with Stripe
+      // before releasing inventory, including delayed webhook delivery.
+      const session = await getStripe().checkout.sessions.retrieve(attempt.externalId);
+      if (session.payment_status === "paid") {
+        const intent = typeof session.payment_intent === "string" ? session.payment_intent : session.payment_intent?.id;
+        await markOrderPaidFromStripe(session.id, intent, { amountTotal: session.amount_total, currency: session.currency });
+        continue;
+      }
+      if (session.status !== "expired") continue;
+      await expireStripeCheckout(session.id);
+      released += 1;
+    } else {
+      const result = await cancelPendingOrder(id, "Released by reservation-expiry maintenance");
+      if (result?.status === "CANCELLED") released += 1;
+    }
   }
 
   return { checked: expired.length, released };

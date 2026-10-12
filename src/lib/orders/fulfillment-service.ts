@@ -1,4 +1,4 @@
-import { requireDb } from "@/lib/db";
+import { runTransaction } from "@/lib/db";
 import { processNotificationOutbox } from "@/lib/notifications/notification-service";
 import {
   consumeReadyStockReservationsForOrder,
@@ -22,9 +22,8 @@ export async function updateDeliveryFulfillment(input: {
   carrier?: string;
   trackingNumber?: string;
 }) {
-  const db = requireDb();
 
-  const order = await db.$transaction(async (tx) => {
+  const order = await runTransaction(async (tx) => {
     const current = await tx.order.findUnique({
       where: { id: input.orderId },
       include: {
@@ -51,6 +50,7 @@ export async function updateDeliveryFulfillment(input: {
     }
 
     validateTransition(current.fulfillmentStatus, input.status);
+    if (current.fulfillmentStatus === input.status) return current;
 
     const now = new Date();
     const carrier = input.carrier?.trim() || current.carrier;
@@ -148,7 +148,7 @@ export async function updateDeliveryFulfillment(input: {
     });
 
     return updated;
-  });
+  }, { isolationLevel: "Serializable" });
 
   await processNotificationOutbox(5).catch(() => undefined);
   return order;

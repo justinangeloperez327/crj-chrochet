@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { AuthError, loginWithPassword } from "@/lib/auth/auth-service";
-import { enforceAuthRate, sameOriginForm } from "@/lib/auth/security";
+import { enforceAuthRate, sameOriginForm, safeAccountRedirect } from "@/lib/auth/security";
 
 export const runtime = "nodejs";
 
@@ -10,7 +10,7 @@ export async function POST(request: Request) {
   const formData = await request.formData();
   const email = String(formData.get("email") ?? "");
   const password = String(formData.get("password") ?? "");
-  const next = safeNext(String(formData.get("next") ?? "/account"));
+  const next = safeAccountRedirect(String(formData.get("next") ?? "/account"));
 
   try {
     await enforceAuthRate(request, "login", email, 10);
@@ -33,10 +33,4 @@ export async function POST(request: Request) {
 
     return NextResponse.redirect(url, 303);
   }
-}
-
-function safeNext(value: string) {
-  if (!value.startsWith("/") || value.startsWith("//")) return "/account";
-  if (value.startsWith("/api")) return "/account";
-  return value;
 }

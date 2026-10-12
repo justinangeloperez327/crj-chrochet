@@ -1,7 +1,7 @@
 import { createHash, randomBytes } from "node:crypto";
 import { Resend } from "resend";
 import type { AuthTokenType } from "@/generated/prisma/client";
-import { requireDb } from "@/lib/db";
+import { requireDb, runTransaction } from "@/lib/db";
 import { hashPassword } from "@/lib/auth/password";
 
 export function hashAuthToken(token: string) {
@@ -53,9 +53,8 @@ function validToken(token: string) { return /^[A-Za-z0-9_-]{40,100}$/.test(token
 
 export async function verifyEmailToken(token: string) {
   if (!validToken(token)) return false;
-  const db = requireDb();
   try {
-    return await db.$transaction(async (tx) => {
+    return await runTransaction(async (tx) => {
       const now = new Date();
       const entry = await tx.authToken.findUnique({
         where: { tokenHash: hashAuthToken(token) }, include: { user: true },
@@ -114,9 +113,8 @@ export async function resetPasswordWithToken(token: string, password: string) {
     throw new Error("Password must contain 12–200 characters.");
   }
   if (!validToken(token)) return false;
-  const db = requireDb();
   const passwordHash = await hashPassword(password);
-  return db.$transaction(async (tx) => {
+  return runTransaction(async (tx) => {
     const now = new Date();
     const entry = await tx.authToken.findUnique({ where: { tokenHash: hashAuthToken(token) } });
     if (!entry || entry.type !== "PASSWORD_RESET" || entry.consumedAt || entry.expiresAt <= now) return false;

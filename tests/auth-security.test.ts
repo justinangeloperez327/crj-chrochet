@@ -26,3 +26,9 @@ test("password hashes are salted and reject incorrect passwords", async () => {
   assert.equal(await verifyPassword(password, first), true);
   assert.equal(await verifyPassword("different password", first), false);
 });
+
+test("malformed password hashes fail closed without expensive invalid parameters", async () => {
+  for (const hash of ["bad", "scrypt$0$8$1$bad$" + "a".repeat(128), "scrypt$1073741824$8$1$" + "a".repeat(32) + "$" + "a".repeat(128)]) {
+    assert.equal(await verifyPassword("password", hash), false);
+  }
+});

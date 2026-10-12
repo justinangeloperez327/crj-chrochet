@@ -11,28 +11,28 @@ import {
 
 export const loadStorefrontProducts = cache(async () => {
   if (!process.env.DATABASE_URL) {
-    return fallbackProducts;
+    return process.env.NODE_ENV === "production" ? [] : fallbackProducts;
   }
 
   try {
     const databaseProducts = await listActiveStorefrontProducts();
-    return databaseProducts ?? fallbackProducts;
+    return databaseProducts ?? (process.env.NODE_ENV === "production" ? [] : fallbackProducts);
   } catch (error) {
     console.error("Database catalog unavailable; using static fallback.", error);
-    return fallbackProducts;
+    return process.env.NODE_ENV === "production" ? [] : fallbackProducts;
   }
 });
 
 export const loadStorefrontProductBySlug = cache(async (slug: string) => {
   if (!process.env.DATABASE_URL) {
-    return getFallbackProductBySlug(slug);
+    return process.env.NODE_ENV === "production" ? undefined : getFallbackProductBySlug(slug);
   }
 
   try {
     const databaseProduct = await getActiveStorefrontProductBySlug(slug);
 
     if (databaseProduct === undefined) {
-      return getFallbackProductBySlug(slug);
+      return process.env.NODE_ENV === "production" ? undefined : getFallbackProductBySlug(slug);
     }
 
     return databaseProduct ?? undefined;
@@ -41,6 +41,6 @@ export const loadStorefrontProductBySlug = cache(async (slug: string) => {
       `Database product lookup failed for ${slug}; using static fallback.`,
       error,
     );
-    return getFallbackProductBySlug(slug);
+    return process.env.NODE_ENV === "production" ? undefined : getFallbackProductBySlug(slug);
   }
 });
