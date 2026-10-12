@@ -12,7 +12,7 @@ customer management, discounts, checkout, and reporting.
 
 ## Local development
 
-Use Node.js 22 and an accessible PostgreSQL database.
+Use Node.js 24 and an accessible PostgreSQL database.
 
 ```bash
 npm ci
@@ -20,13 +20,13 @@ cp .env.example .env
 # Edit .env and set DATABASE_URL and applicable service keys.
 npm run db:generate
 npm run db:deploy
-npm run db:seed
+ALLOW_DEMO_SEED=true npm run db:seed
 npm run dev
 ```
 
 Open http://localhost:3000.
 
-The storefront includes a no-database fallback catalogue; accounts, orders,
+Development includes a no-database fallback catalogue. Production only shows database products; accounts, orders,
 admin persistence, inventory and checkout require PostgreSQL.
 
 ## Verification
@@ -34,6 +34,7 @@ admin persistence, inventory and checkout require PostgreSQL.
 ```bash
 npm run lint
 npm run typecheck
+npm run test
 npm run build
 ```
 
@@ -47,3 +48,9 @@ manual deployment. Do not apply migrations or seed demo records automatically
 during a build.
 
 Other feature details are in [docs](docs/).
+
+For real database and browser verification, use only a disposable PostgreSQL
+`crj_test` database, apply migrations, run development seeding and bootstrap a
+CI administrator, then run `npm run test:integration`, `npm run build`,
+`npx playwright install chromium`, and `npm run test:e2e`. CI runs these steps
+against PostgreSQL 16 and never deploys.

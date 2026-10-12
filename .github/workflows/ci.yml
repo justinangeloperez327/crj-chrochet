@@ -17,7 +17,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: "22"
+          node-version: "24"
           cache: npm
       - name: Install locked dependencies
         run: npm ci --no-audit --no-fund
@@ -27,6 +27,8 @@ jobs:
         run: |
           test -s prisma/migrations/0_init/migration.sql
           test -f prisma/migrations/migration_lock.toml
+      - name: Audit runtime dependencies
+        run: npm audit --omit=dev --audit-level=high
       - name: Lint
         run: npm run lint
       - name: Type-check
@@ -58,11 +60,13 @@ jobs:
       ADMIN_EMAIL: ci-admin@example.invalid
       ADMIN_PASSWORD: ci-only-not-for-production-2026
       ADMIN_NAME: CI Admin
+      ALLOW_DEMO_SEED: "true"
+      APP_URL: http://127.0.0.1:3000
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: "22"
+          node-version: "24"
           cache: npm
       - run: npm ci --no-audit --no-fund
       - name: Apply real SQL migrations to disposable PostgreSQL
@@ -72,4 +76,12 @@ jobs:
           npm run db:seed
           npm run db:bootstrap-admin
       - name: Test verified guest claiming and single-use recovery
-        run: npx tsx --test tests/database.integration.test.ts
+        run: npm run test:integration
+      - name: Check migrated schema matches Prisma
+        run: npx prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --exit-code
+      - name: Build with PostgreSQL
+        run: npm run build
+      - name: Install browser
+        run: npx playwright install --with-deps chromium
+      - name: Browser workflows
+        run: npm run test:e2e

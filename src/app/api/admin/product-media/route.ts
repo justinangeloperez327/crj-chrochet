@@ -1,9 +1,11 @@
+import { matchesImageType } from "@/lib/media/image-validation";
+import { sameOriginForm } from "@/lib/auth/security";
 import { del, put } from "@vercel/blob";
 import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 
 import { getCurrentSession } from "@/lib/auth/session";
-import { requireDb } from "@/lib/db";
+import { requireDb, runTransaction } from "@/lib/db";
 
 export const runtime = "nodejs";
 
@@ -17,6 +19,7 @@ const ALLOWED_TYPES = new Set([
 ]);
 
 export async function POST(request: Request) {
+  if (!sameOriginForm(request)) return new Response("Forbidden", { status: 403 });
   const auth = await adminSession();
   if (auth instanceof NextResponse) return auth;
 
@@ -78,11 +81,9 @@ export async function POST(request: Request) {
     );
   }
 
-  const last = await db.productImage.findFirst({
-    where: { productId },
-    orderBy: { sortOrder: "desc" },
-    select: { sortOrder: true },
-  });
+  if (!matchesImageType(new Uint8Array(await file.slice(0, 32).arrayBuffer()), file.type)) {
+    return NextResponse.json({ error: "Image contents do not match its declared type." }, { status: 415 });
+  }
 
   const safeName =
     file.name
@@ -102,13 +103,14 @@ export async function POST(request: Request) {
       cacheControlMaxAge: 60 * 60 * 24 * 365,
     });
 
-    const image = await db.productImage.create({
-      data: {
-        productId,
-        url: blob.url,
-        altText: altTextInput.slice(0, 180) || product.name,
+    const uploadedUrl = blob.url;
+    const image = await runTransaction(async (tx) => {
+      if (await tx.productImage.count({ where: { productId } }) >= MAX_IMAGES_PER_PRODUCT) throw new Error("Image limit reached.");
+      const last = await tx.productImage.findFirst({ where: { productId }, orderBy: { sortOrder: "desc" }, select: { sortOrder: true } });
+      return tx.productImage.create({ data: {
+        productId, url: uploadedUrl, altText: altTextInput.slice(0, 180) || product.name,
         sortOrder: (last?.sortOrder ?? -10) + 10,
-      },
+      } });
     });
 
     revalidateProductMedia(productId, product.slug);
@@ -138,6 +140,7 @@ export async function POST(request: Request) {
 }
 
 export async function PATCH(request: Request) {
+  if (!sameOriginForm(request)) return new Response("Forbidden", { status: 403 });
   const auth = await adminSession();
   if (auth instanceof NextResponse) return auth;
 
@@ -214,6 +217,7 @@ export async function PATCH(request: Request) {
 }
 
 export async function DELETE(request: Request) {
+  if (!sameOriginForm(request)) return new Response("Forbidden", { status: 403 });
   const auth = await adminSession();
   if (auth instanceof NextResponse) return auth;
 

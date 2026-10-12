@@ -28,7 +28,8 @@ test("migrations, guest claim, one-time verification, and reset", async () => {
         expiresAt: new Date(Date.now() + 600_000),
       },
     });
-    assert.equal(await verifyEmailToken(token), true);
+    const verified = await Promise.all([verifyEmailToken(token), verifyEmailToken(token)]);
+    assert.equal(verified.filter(Boolean).length, 1);
     assert.equal(await verifyEmailToken(token), false);
     const claimed = await db.customer.findUniqueOrThrow({ where: { id: legacy.id } });
     assert.equal(claimed.userId, userId);
@@ -42,6 +43,9 @@ test("migrations, guest claim, one-time verification, and reset", async () => {
       data: { userId, tokenHash: hashAuthToken(randomBytes(32).toString("base64url")),
         expiresAt: new Date(Date.now() + 600_000) },
     });
+    const expired = randomBytes(32).toString("base64url");
+    await db.authToken.create({ data: { userId, tokenHash: hashAuthToken(expired), type: "PASSWORD_RESET", expiresAt: new Date(Date.now() - 1) } });
+    assert.equal(await resetPasswordWithToken(expired, "expired token password"), false);
     const newPassword = "a new secure password for integration";
     assert.equal(await resetPasswordWithToken(reset, newPassword), true);
     assert.equal(await resetPasswordWithToken(reset, newPassword), false);

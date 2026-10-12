@@ -3,7 +3,8 @@
 ## Status
 
 This project uses Next.js, PostgreSQL, Prisma 7, Stripe, Resend and Vercel Blob.
-Storefront pages can show fallback products without a database; checkout,
+Development storefront pages can show fallback products without a database.
+Production does not show demo products. Checkout,
 account operations, inventory and admin persistence require PostgreSQL.
 
 Git-based Vercel deployments are intentionally **disabled** in `vercel.json`.
@@ -12,7 +13,7 @@ Do **not** change this setting without deciding to enable auto-deployments.
 
 ## Before the first deployment
 
-1. Install Node.js 22 and npm. Run `npm ci`.
+1. Install Node.js 24 and npm. Run `npm ci`.
 2. Create a PostgreSQL database, set `DATABASE_URL` in the Vercel project's
    environment variables, and restrict database access appropriately.
 3. Configure `APP_URL` with the *actual* HTTPS production site URL.
@@ -21,7 +22,8 @@ Do **not** change this setting without deciding to enable auto-deployments.
    `https://YOUR_DOMAIN/api/payments/stripe/webhook` in Stripe.
 5. Set a strong `CRON_SECRET` for the Vercel cron endpoint.
 6. Configure Resend (`RESEND_API_KEY`, `ORDER_EMAIL_FROM`) and the verified
-   sending domain if emails are required. Without it, emails stay queued.
+   sending domain as a launch requirement. Account verification and password recovery require
+   email delivery; order emails remain queued during provider outages.
 7. Connect Vercel Blob; set `BLOB_READ_WRITE_TOKEN` only if your environment
    requires a legacy/local read-write token.
 8. Review delivery rates and store settings. Catalogue currency is AED.
@@ -69,6 +71,7 @@ npm ci
 npx prisma validate
 npm run lint
 npm run typecheck
+npm run test
 npm run build
 ```
 
@@ -99,3 +102,66 @@ Confirm cron availability for your Vercel plan.
 quality checks pass, secrets are set, Stripe webhooks function in test mode,
 and checkout/refund/inventory are verified against a test database.
 Until then the application is not production-verified.
+
+## Project settings and staging verification
+
+In Vercel Project Settings → Git, confirm Git deployment is disabled for all
+branches. Keep `git.deploymentEnabled: false`; CI has no deployment steps.
+Project dashboard settings cannot be verified from repository configuration
+alone. Review the linked team/project before running `vercel deploy --prod`.
+
+Use Node.js 24 in Vercel, matching CI. Set every required environment variable
+in Production and in your manually deployed staging project. Do not reuse live
+Stripe keys or a production database for tests. Configure the same region for
+your PostgreSQL database and functions where practical.
+
+Before publishing, verify customer verification/resend/reset mail delivery,
+Stripe test checkout and failure/expiry events, full/partial refund recovery,
+Blob upload/deletion, delivery configuration, and administrative operations.
+The automated suites test database state and browser access; they do not prove
+provider delivery or a successful financial transaction.
+
+The webhook endpoint requires a raw signed body. Subscribe to
+`checkout.session.completed`, `checkout.session.async_payment_succeeded`,
+`checkout.session.async_payment_failed`, `checkout.session.expired`,
+`refund.created`, `refund.updated`, and `refund.failed`. Processing failures
+return HTTP 500 so Stripe retries. Never manually replay unsigned events.
+Maintenance checks Stripe before releasing expired stock. A payment for an
+already cancelled order raises a reconciliation error; investigate in Stripe
+and refund as appropriate before fulfillment. Do not fulfill a cancelled order.
+
+After reviewing and backing up the production database, run these commands
+with the correct production environment loaded on your computer:
+
+```bash
+npm ci
+npx prisma validate
+npm run lint
+npm run typecheck
+npm run test
+npm run build
+npm run db:deploy
+npm run db:bootstrap-admin
+vercel deploy --prod
+```
+
+Then run `SMOKE_URL=https://YOUR_DOMAIN SMOKE_REQUIRE_READY=1 npm run smoke`.
+Create your actual products, materials, recipes and delivery rates in admin.
+Do not run `db:seed` against production; a local shell lacking `NODE_ENV` can
+still point at production. Seeding additionally requires `ALLOW_DEMO_SEED=true`;
+leave that unset in production and review `DATABASE_URL` before any seed command.
+
+## Monitoring and rollback
+
+Monitor `/api/health` (200 means required configuration and database connection
+are present), Stripe event retries, pending refunds, email outbox failures and
+Vercel function errors. Health does not verify provider credentials or delivery.
+Ensure cron is enabled and inspect its results; the daily job processes bounded
+batches, so reservation/email backlogs may need an authenticated maintenance
+run or a more frequent cron on a plan supporting it.
+
+Record the prior deployment URL and database backup before release. To roll
+back application code, use `vercel rollback <previous-deployment-url>` after
+reviewing the linked project. Rollback does not reverse database migrations.
+Keep database changes compatible with the prior application; restore data only
+through an independently reviewed recovery procedure.

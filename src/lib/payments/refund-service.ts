@@ -1,6 +1,7 @@
+import type { Prisma } from "@/generated/prisma/client";
 import type Stripe from "stripe";
 
-import { requireDb } from "@/lib/db";
+import { requireDb, runTransaction } from "@/lib/db";
 import {
   releaseCustomBouquetMaterials,
 } from "@/lib/materials/material-service";
@@ -34,7 +35,7 @@ export class RefundError extends Error {
 export async function createStripeRefund(input: CreateRefundInput) {
   const db = requireDb();
 
-  const prepared = await db.$transaction(async (tx) => {
+  const prepared = await runTransaction(async (tx) => {
     const order = await tx.order.findUnique({
       where: { id: input.orderId },
       include: {
@@ -175,7 +176,7 @@ export async function createStripeRefund(input: CreateRefundInput) {
       orderNumber: order.orderNumber,
       paymentAttempt: attempt,
     };
-  });
+  }, { isolationLevel: "Serializable" });
 
   let paymentIntentId: string;
 
@@ -252,81 +253,81 @@ export async function createStripeRefund(input: CreateRefundInput) {
 }
 
 export async function syncStripeRefund(stripeRefund: Stripe.Refund) {
-  const db = requireDb();
-  const refundId = stripeRefund.metadata?.refundId;
-  const orderId = stripeRefund.metadata?.orderId;
+  return runTransaction(async (tx) => {
+    const refundId = stripeRefund.metadata?.refundId;
 
-  const local = refundId
-    ? await db.refund.findUnique({ where: { id: refundId } })
-    : await db.refund.findFirst({
-        where: {
-          OR: [
-            { externalId: stripeRefund.id },
-            ...(orderId ? [{ orderId }] : []),
-          ],
-        },
-        orderBy: { createdAt: "desc" },
-      });
 
-  if (!local) return null;
+    const local = refundId
+      ? await tx.refund.findUnique({ where: { id: refundId } })
+      : await tx.refund.findFirst({
+          where: {
+            externalId: stripeRefund.id,
+          },
+          orderBy: { createdAt: "desc" },
+        });
 
-  const mappedStatus = mapStripeRefundStatus(stripeRefund.status);
+    if (!local) return null;
 
-  if (
-    local.status === mappedStatus &&
-    ["SUCCEEDED", "FAILED", "CANCELED"].includes(mappedStatus)
-  ) {
-    return local;
-  }
+    if (local.externalId && local.externalId !== stripeRefund.id) throw new RefundError("Refund provider identity mismatch.", 409);
+    if (Math.round(Number(local.amount) * 100) !== stripeRefund.amount || local.currency.toLowerCase() !== stripeRefund.currency) throw new RefundError("Refund amount or currency mismatch.", 409);
+    if (["SUCCEEDED", "FAILED", "CANCELED"].includes(local.status) && local.status !== mapStripeRefundStatus(stripeRefund.status)) return local;
 
-  const claimed = await db.refund.updateMany({
-    where: {
-      id: local.id,
-      status: local.status,
-    },
-    data: {
-      externalId: stripeRefund.id,
-      status: mappedStatus,
-      errorMessage:
-        mappedStatus === "FAILED"
-          ? stripeRefund.failure_reason || "Stripe refund failed."
-          : null,
-      completedAt:
-        mappedStatus === "SUCCEEDED" ? new Date() : local.completedAt,
-    },
-  });
+    const mappedStatus = mapStripeRefundStatus(stripeRefund.status);
 
-  if (claimed.count === 0) {
-    return db.refund.findUnique({ where: { id: local.id } });
-  }
+    if (
+      local.status === mappedStatus &&
+      ["SUCCEEDED", "FAILED", "CANCELED"].includes(mappedStatus)
+    ) {
+      return local;
+    }
 
-  const updated = await db.refund.findUnique({
-    where: { id: local.id },
-  });
+    const claimed = await tx.refund.updateMany({
+      where: {
+        id: local.id,
+        status: local.status,
+      },
+      data: {
+        externalId: stripeRefund.id,
+        status: mappedStatus,
+        errorMessage:
+          mappedStatus === "FAILED"
+            ? stripeRefund.failure_reason || "Stripe refund failed."
+            : null,
+        completedAt:
+          mappedStatus === "SUCCEEDED" ? new Date() : local.completedAt,
+      },
+    });
 
-  if (!updated) return null;
+    if (claimed.count === 0) {
+      return tx.refund.findUnique({ where: { id: local.id } });
+    }
 
-  if (mappedStatus === "SUCCEEDED") {
-    await finalizeSuccessfulRefund(updated.id);
-  } else if (
-    mappedStatus === "PENDING" ||
-    mappedStatus === "REQUIRES_ACTION"
-  ) {
-    await queueRefundStartedNotification(updated.id);
-  } else if (
-    mappedStatus === "FAILED" ||
-    mappedStatus === "CANCELED"
-  ) {
-    await reconcileFailedRefund(updated.id);
-  }
+    const updated = await tx.refund.findUnique({
+      where: { id: local.id },
+    });
 
-  return updated;
+    if (!updated) return null;
+
+    if (mappedStatus === "SUCCEEDED") {
+      await finalizeSuccessfulRefund(tx, updated.id);
+    } else if (
+      mappedStatus === "PENDING" ||
+      mappedStatus === "REQUIRES_ACTION"
+    ) {
+      await queueRefundStartedNotification(tx, updated.id);
+    } else if (
+      mappedStatus === "FAILED" ||
+      mappedStatus === "CANCELED"
+    ) {
+      await reconcileFailedRefund(tx, updated.id);
+    }
+
+    return updated;
+  }, { isolationLevel: "Serializable" });
 }
 
-async function finalizeSuccessfulRefund(refundId: string) {
-  const db = requireDb();
+async function finalizeSuccessfulRefund(tx: Prisma.TransactionClient, refundId: string) {
 
-  await db.$transaction(async (tx) => {
     const refund = await tx.refund.findUnique({
       where: { id: refundId },
       include: {
@@ -461,12 +462,10 @@ async function finalizeSuccessfulRefund(refundId: string) {
         },
       });
     }
-  });
+
 }
 
-async function queueRefundStartedNotification(refundId: string) {
-  const db = requireDb();
-  await db.$transaction(async (tx) => {
+async function queueRefundStartedNotification(tx: Prisma.TransactionClient, refundId: string) {
     const refund = await tx.refund.findUnique({
       where: { id: refundId },
       include: { order: true },
@@ -495,7 +494,7 @@ async function queueRefundStartedNotification(refundId: string) {
       where: { id: refund.id },
       data: { startedNotifiedAt: new Date() },
     });
-  });
+
 }
 
 async function resolvePaymentIntentId(
@@ -557,10 +556,8 @@ function roundMoney(value: number) {
 }
 
 
-async function reconcileFailedRefund(refundId: string) {
-  const db = requireDb();
+async function reconcileFailedRefund(tx: Prisma.TransactionClient, refundId: string) {
 
-  await db.$transaction(async (tx) => {
     const refund = await tx.refund.findUnique({
       where: { id: refundId },
       include: {
@@ -638,5 +635,5 @@ async function reconcileFailedRefund(refundId: string) {
         },
       },
     });
-  });
+
 }

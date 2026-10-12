@@ -14,7 +14,8 @@ function createPrismaClient() {
   if (!connectionString) return null;
 
   return new PrismaClient({
-    adapter: new PrismaPg({ connectionString }),
+    adapter: new PrismaPg({ connectionString, max: 5, connectionTimeoutMillis: 5000 }),
+    transactionOptions: { isolationLevel: "Serializable", maxWait: 5000, timeout: 15000 },
   });
 }
 
@@ -35,4 +36,19 @@ export function requireDb() {
     );
   }
   return client;
+}
+
+// Only use this for database-only callbacks: retries must not repeat provider calls.
+export async function runTransaction<T>(
+  operation: (tx: import("@/generated/prisma/client").Prisma.TransactionClient) => Promise<T>,
+  options?: { isolationLevel?: import("@/generated/prisma/client").Prisma.TransactionIsolationLevel },
+): Promise<T> {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await requireDb().$transaction(operation, { ...options, isolationLevel: "Serializable" });
+    } catch (error) {
+      if (attempt >= 3 || typeof error !== "object" || error === null || !("code" in error) || error.code !== "P2034") throw error;
+      await new Promise((resolve) => setTimeout(resolve, 25 * 2 ** attempt));
+    }
+  }
 }

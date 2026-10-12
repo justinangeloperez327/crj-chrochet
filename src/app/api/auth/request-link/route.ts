@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { requestAuthLink } from "@/lib/auth/email-tokens";
-import { enforceAuthRate, sameOriginForm } from "@/lib/auth/security";
+import { enforceAuthRate, sameOriginForm , publicRequestOrigin } from "@/lib/auth/security";
 
 export const runtime = "nodejs";
 export async function POST(request: Request) {
@@ -15,7 +15,7 @@ export async function POST(request: Request) {
     console.error("Account link request unavailable:", error instanceof Error ? error.name : "unknown");
   }
   return NextResponse.redirect(
-    new URL(type === "EMAIL_VERIFICATION" ? "/verify-email?sent=1" : "/forgot-password?sent=1", request.url),
+    new URL(type === "EMAIL_VERIFICATION" ? "/verify-email?sent=1" : "/forgot-password?sent=1", publicRequestOrigin(request)),
     303,
   );
 }

@@ -36,11 +36,11 @@ export async function listBouquetBuilderOptions() {
 
   const [stems, wraps] = await Promise.all([
     db.bouquetStemOption.findMany({
-      where: { isActive: true },
+      where: { isActive: true, materials: { some: {}, every: { material: { isActive: true } } } },
       orderBy: [{ sortOrder: "asc" }, { flowerType: "asc" }],
     }),
     db.bouquetWrapOption.findMany({
-      where: { isActive: true },
+      where: { isActive: true, materials: { some: {}, every: { material: { isActive: true } } } },
       orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
     }),
   ]);

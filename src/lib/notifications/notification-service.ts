@@ -58,7 +58,7 @@ export async function processNotificationOutbox(limit = 20) {
           notification.payload as unknown,
           brand,
         ),
-      });
+      }, { idempotencyKey: `notification/${notification.id}` });
 
       if (result.error) {
         throw new Error(result.error.message);

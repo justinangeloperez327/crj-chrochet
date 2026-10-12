@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
@@ -9,7 +11,6 @@ import { ProductReviews } from "@/components/store/product-reviews";
 import { ProductPurchasePanel } from "@/components/store/product-purchase-panel";
 import { SiteFooter } from "@/components/store/site-footer";
 import { SiteHeader } from "@/components/store/site-header";
-import { products as fallbackProducts } from "@/lib/catalog";
 import { listApprovedProductReviewsBySlug } from "@/lib/reviews/review-repository";
 import {
   loadStorefrontProductBySlug,
@@ -19,10 +20,6 @@ import {
 type ProductPageProps = {
   params: Promise<{ slug: string }>;
 };
-
-export function generateStaticParams() {
-  return fallbackProducts.map((product) => ({ slug: product.slug }));
-}
 
 export async function generateMetadata({
   params,

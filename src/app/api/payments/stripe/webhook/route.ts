@@ -16,21 +16,17 @@ export async function POST(request: Request) {
     );
   }
 
+  let event;
   try {
-    const payload = await request.text();
-    const event = getStripe().webhooks.constructEvent(
-      payload,
-      signature,
-      secret,
-    );
-
+    event = getStripe().webhooks.constructEvent(await request.text(), signature, secret);
+  } catch {
+    return NextResponse.json({ error: "Invalid webhook signature." }, { status: 400 });
+  }
+  try {
     await processStripeWebhook(event);
     return NextResponse.json({ received: true });
   } catch (error) {
-    console.error("Stripe webhook verification/processing failed.", error);
-    return NextResponse.json(
-      { error: "Invalid webhook." },
-      { status: 400 },
-    );
+    console.error("Stripe webhook processing failed:", error instanceof Error ? error.name : "unknown");
+    return NextResponse.json({ error: "Webhook processing unavailable." }, { status: 500 });
   }
 }

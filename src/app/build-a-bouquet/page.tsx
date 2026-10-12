@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
@@ -60,7 +62,7 @@ export default async function BuildABouquetPage() {
                 Custom bouquet builder is being prepared.
               </h2>
               <p className="mt-3 max-w-xl text-sm leading-6 text-bloom-muted">
-                The builder needs the PostgreSQL bouquet catalog and recipes. Configure the database and run the latest seed to activate it.
+                Custom arrangements are currently unavailable. Please check back soon.
               </p>
             </div>
           )}

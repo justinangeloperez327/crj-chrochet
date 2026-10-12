@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { verifyEmailToken } from "@/lib/auth/email-tokens";
-import { sameOriginForm } from "@/lib/auth/security";
+import { sameOriginForm , publicRequestOrigin } from "@/lib/auth/security";
 
 export const runtime = "nodejs";
 export async function POST(request: Request) {
@@ -9,7 +9,7 @@ export async function POST(request: Request) {
   const token = String(form.get("token") ?? "");
   const verified = await verifyEmailToken(token);
   const result = NextResponse.redirect(
-    new URL(verified ? "/login?verified=1" : "/verify-email?error=1", request.url),
+    new URL(verified ? "/login?verified=1" : "/verify-email?error=1", publicRequestOrigin(request)),
     303,
   );
   result.headers.set("Cache-Control", "no-store");

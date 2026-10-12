@@ -1,5 +1,5 @@
 import { getDeliveryRate } from "@/lib/delivery/delivery-service";
-import { requireDb } from "@/lib/db";
+import { requireDb, runTransaction } from "@/lib/db";
 import {
   reserveCustomBouquetMaterials,
 } from "@/lib/materials/material-service";
@@ -92,7 +92,7 @@ export async function startCustomBouquetCheckout(
   let createdOrderId: string | null = null;
 
   try {
-    const order = await db.$transaction(async (tx) => {
+    const order = await runTransaction(async (tx) => {
       const request = await tx.customBouquetRequest.findUnique({
         where: { paymentToken },
         include: {

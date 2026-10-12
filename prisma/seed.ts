@@ -10,6 +10,8 @@ if (process.env.NODE_ENV === "production" || process.env.VERCEL_ENV === "product
   throw new Error("Demo seed is disabled in production. Use db:bootstrap-admin.");
 }
 
+if (process.env.ALLOW_DEMO_SEED !== "true") throw new Error("Set ALLOW_DEMO_SEED=true explicitly for disposable development data only.");
+
 const connectionString = process.env.DATABASE_URL;
 
 if (!connectionString) {

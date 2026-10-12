@@ -1,3 +1,4 @@
+import { sameOriginForm } from "@/lib/auth/security";
 import { NextResponse } from "next/server";
 
 import {
@@ -9,6 +10,7 @@ import {
 export const runtime = "nodejs";
 
 export async function POST(request: Request) {
+  if (!sameOriginForm(request)) return new Response("Forbidden", { status: 403 });
   try {
     const input = (await request.json()) as CreateBouquetRequestInput;
     const bouquet = await createBouquetRequest(input);

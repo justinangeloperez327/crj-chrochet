@@ -26,10 +26,12 @@ export async function processStripeWebhook(event: Stripe.Event) {
     const session = event.data.object as Stripe.Checkout.Session;
 
     if (session.payment_status === "paid") {
-      await markOrderPaidFromStripe(
+      const paidOrder = await markOrderPaidFromStripe(
         session.id,
         paymentIntentId(session.payment_intent),
+        { amountTotal: session.amount_total, currency: session.currency },
       );
+      if (!paidOrder && session.metadata?.orderId) throw new Error("Local payment attempt not available yet.");
       await processNotificationOutbox(5).catch(() => undefined);
     }
   }

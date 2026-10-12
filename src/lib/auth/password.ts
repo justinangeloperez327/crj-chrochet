@@ -67,6 +67,8 @@ export async function verifyPassword(password: string, stored: string) {
   const parallelization = Number(p);
 
   if (
+    N !== SCRYPT_N || blockSize !== SCRYPT_R || parallelization !== SCRYPT_P ||
+    !/^[a-f0-9]{32}$/.test(salt) || !/^[a-f0-9]{128}$/.test(expectedHex) ||
     !Number.isInteger(N) ||
     !Number.isInteger(blockSize) ||
     !Number.isInteger(parallelization)

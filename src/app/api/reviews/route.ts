@@ -1,3 +1,4 @@
+import { sameOriginForm } from "@/lib/auth/security";
 import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 
@@ -7,6 +8,7 @@ import { createVerifiedReview } from "@/lib/reviews/review-repository";
 export const runtime = "nodejs";
 
 export async function POST(request: Request) {
+  if (!sameOriginForm(request)) return new Response("Forbidden", { status: 403 });
   const session = await getCurrentSession();
 
   if (!session) {

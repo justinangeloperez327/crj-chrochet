@@ -6,7 +6,7 @@ import {
   resolveDiscount,
 } from "@/lib/discounts/discount-service";
 import { getDeliveryRateFromSettings } from "@/lib/delivery/delivery-service";
-import { requireDb } from "@/lib/db";
+import { runTransaction } from "@/lib/db";
 import { createOrderNumber } from "@/lib/orders/order-number";
 import { getStoreSettings } from "@/lib/settings/store-settings";
 
@@ -73,9 +73,8 @@ export async function getOrderQuote(
   discountCode?: string,
   customerEmail?: string,
 ) {
-  const db = requireDb();
 
-  return db.$transaction(async (tx) => {
+  return runTransaction(async (tx) => {
     const lines = await resolveCart(tx, items);
     const subtotal = roundMoney(
       lines.reduce(
@@ -120,10 +119,9 @@ export async function createPendingOrder(input: CreateOrderInput) {
   }
 
   validateOrderInput(input, settings);
-  const db = requireDb();
   const session = await getCurrentSession();
 
-  return db.$transaction(
+  return runTransaction(
     async (tx) => {
       const lines = await resolveCart(tx, input.items);
 
@@ -379,13 +377,14 @@ async function resolveCart(
   tx: Prisma.TransactionClient,
   items: CheckoutLineInput[],
 ): Promise<ResolvedLine[]> {
-  if (!Array.isArray(items) || items.length === 0) {
+  if (!Array.isArray(items) || items.length === 0 || items.length > 100) {
     throw new OrderCreationError("Your basket is empty.");
   }
 
   const resolved = new Map<string, ResolvedLine>();
 
   for (const item of items) {
+    if (!item || typeof item !== "object" || typeof item.productId !== "string" || [item.variantSku, item.variant, item.colorName, item.sizeName].some((value) => value !== undefined && typeof value !== "string")) throw new OrderCreationError("Invalid basket item.");
     const quantity = Number(item.quantity);
 
     if (!Number.isInteger(quantity) || quantity < 1 || quantity > 99) {
@@ -452,6 +451,7 @@ async function resolveCart(
     const current = resolved.get(variant.id);
     const nextQuantity = (current?.quantity ?? 0) + quantity;
 
+    if (nextQuantity > 99) throw new OrderCreationError("A basket quantity is invalid.");
     resolved.set(variant.id, {
       productId: variant.product.id,
       variantId: variant.id,
@@ -495,10 +495,10 @@ function validateOrderInput(
     throw new OrderCreationError("Invalid checkout request.");
   }
 
-  const email = input.email?.trim();
+  const email = typeof input.email === "string" ? input.email.trim() : "";
 
   if (
-    !email ||
+    !email || email.length > 254 ||
     !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
   ) {
     throw new OrderCreationError("Enter a valid email address.");
@@ -513,7 +513,7 @@ function validateOrderInput(
     input.address?.emirate,
   ];
 
-  if (requiredAddressFields.some((value) => !value?.trim())) {
+  if (requiredAddressFields.some((value) => typeof value !== "string" || !value.trim() || value.length > 300)) {
     throw new OrderCreationError(
       "Complete all required delivery information.",
     );

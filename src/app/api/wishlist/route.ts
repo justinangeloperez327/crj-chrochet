@@ -1,3 +1,4 @@
+import { sameOriginForm } from "@/lib/auth/security";
 import { NextResponse } from "next/server";
 
 import { getCurrentSession } from "@/lib/auth/session";
@@ -26,6 +27,7 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  if (!sameOriginForm(request)) return new Response("Forbidden", { status: 403 });
   const session = await getCurrentSession();
 
   if (!session) {
@@ -79,6 +81,7 @@ export async function POST(request: Request) {
 }
 
 export async function PUT(request: Request) {
+  if (!sameOriginForm(request)) return new Response("Forbidden", { status: 403 });
   const session = await getCurrentSession();
 
   if (!session) {

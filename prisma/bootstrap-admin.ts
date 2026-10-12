@@ -13,17 +13,21 @@ async function main() {
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     throw new Error("Set a valid ADMIN_EMAIL.");
   }
-  if (!password || password.length < 12 || password === "change-this-to-a-long-random-password") {
+  if (!password || password.length < 12 || password.length > 200 || password === "change-this-to-a-long-random-password") {
     throw new Error("Set a unique ADMIN_PASSWORD with at least 12 characters.");
   }
 
   const db = new PrismaClient({ adapter: new PrismaPg({ connectionString }) });
   try {
     const passwordHash = await hashPassword(password);
-    await db.user.upsert({
-      where: { email },
-      update: { name, passwordHash, role: "ADMIN", emailVerifiedAt: new Date() },
-      create: { email, name, passwordHash, role: "ADMIN", emailVerifiedAt: new Date() },
+    await db.$transaction(async (tx) => {
+      const user = await tx.user.upsert({
+        where: { email },
+        update: { name, passwordHash, role: "ADMIN", emailVerifiedAt: new Date() },
+        create: { email, name, passwordHash, role: "ADMIN", emailVerifiedAt: new Date() },
+      });
+      await tx.authSession.deleteMany({ where: { userId: user.id } });
+      await tx.authToken.deleteMany({ where: { userId: user.id } });
     });
     console.info("Administrator account configured.");
   } finally {

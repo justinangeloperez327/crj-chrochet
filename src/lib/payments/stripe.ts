@@ -71,15 +71,17 @@ export async function createStripeCheckoutSession(orderId: string) {
         },
       },
     ],
-  });
+  }, { idempotencyKey: `checkout/${order.id}` });
 
   if (!session.url) {
     throw new Error("Stripe did not return a Checkout URL.");
   }
 
   try {
-    await db.paymentAttempt.create({
-      data: {
+    await db.paymentAttempt.upsert({
+      where: { externalId: session.id },
+      update: { checkoutUrl: session.url },
+      create: {
         orderId: order.id,
         provider: "STRIPE",
         externalId: session.id,
@@ -91,6 +93,14 @@ export async function createStripeCheckoutSession(orderId: string) {
       },
     });
   } catch (error) {
+    // Prisma can emulate an upsert; concurrent callers may race on insert.
+    // A committed attempt for this same session must never be expired here.
+    if (typeof error === "object" && error !== null && "code" in error && error.code === "P2002") {
+      const existing = await db.paymentAttempt.findUnique({ where: { externalId: session.id } });
+      if (existing?.orderId === order.id && Number(existing.amount) === Number(order.total) && existing.currency === order.currency) {
+        return { id: session.id, url: session.url, expiresAt: new Date(session.expires_at * 1000) };
+      }
+    }
     await stripe.checkout.sessions.expire(session.id).catch(() => undefined);
     throw error;
   }
@@ -117,6 +127,7 @@ export function verifyCheckoutReturn(
   orderId: string,
   signature: string,
 ) {
+  if (!/^[a-f0-9]{64}$/.test(signature)) return false;
   const expected = signCheckoutReturn(orderId);
   const left = Buffer.from(expected, "hex");
   const right = Buffer.from(signature, "hex");
