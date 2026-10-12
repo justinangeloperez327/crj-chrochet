@@ -50,13 +50,6 @@ export async function updateDeliveryFulfillment(input: {
       throw new FulfillmentError("Cancelled orders cannot be delivered.", 409);
     }
 
-    if (current.paymentStatus === "REFUNDED") {
-      throw new FulfillmentError(
-        "Fully refunded orders cannot be delivered.",
-        409,
-      );
-    }
-
     validateTransition(current.fulfillmentStatus, input.status);
 
     const now = new Date();

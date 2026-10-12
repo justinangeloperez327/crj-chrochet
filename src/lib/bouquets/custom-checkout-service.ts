@@ -145,7 +145,7 @@ export async function startCustomBouquetCheckout(
       let deliveryAmount: number;
 
       try {
-        deliveryAmount = getDeliveryRate(delivery.emirate);
+        deliveryAmount = await getDeliveryRate(delivery.emirate);
       } catch {
         throw new CustomBouquetCheckoutError(
           "Delivery is not configured for the selected emirate.",

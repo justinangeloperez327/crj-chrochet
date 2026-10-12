@@ -425,14 +425,6 @@ export async function updateOrderWorkflow(formData: FormData) {
         );
       }
 
-      if (
-        status === "FULFILLED" &&
-        !["READY", "COMPLETED"].includes(currentCustomStatus)
-      ) {
-        throw new Error(
-          "Custom bouquet must be ready before it can be completed.",
-        );
-      }
     }
 
     const outstandingReservations = getOutstandingReservations(
@@ -530,45 +522,6 @@ export async function updateOrderWorkflow(formData: FormData) {
       }
     }
 
-    if (status === "FULFILLED" && order.status !== "FULFILLED") {
-      for (const [variantId, quantity] of outstandingReservations) {
-        if (quantity <= 0) continue;
-
-        const variant = await tx.productVariant.findUnique({
-          where: { id: variantId },
-        });
-
-        if (!variant) continue;
-
-        if (
-          variant.stockOnHand < quantity ||
-          variant.stockReserved < quantity
-        ) {
-          throw new Error(
-            `Inventory for ${variant.sku} is inconsistent with the reservation.`,
-          );
-        }
-
-        await tx.productVariant.update({
-          where: { id: variantId },
-          data: {
-            stockOnHand: { decrement: quantity },
-            stockReserved: { decrement: quantity },
-          },
-        });
-
-        await tx.inventoryMovement.create({
-          data: {
-            variantId,
-            orderId,
-            type: "SALE",
-            quantity,
-            note: `Consumed stock for ${order.orderNumber}`,
-          },
-        });
-      }
-    }
-
     const paidAt = becomingPaid ? new Date() : order.paidAt;
 
     await tx.order.update({
@@ -602,9 +555,7 @@ export async function updateOrderWorkflow(formData: FormData) {
           ? "IN_PRODUCTION"
           : status === "READY"
             ? "READY"
-            : status === "FULFILLED"
-              ? "COMPLETED"
-              : null;
+            : null;
 
       if (customStatus) {
         await tx.customBouquetRequest.update({

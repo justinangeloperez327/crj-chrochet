@@ -1,9 +1,7 @@
 import type { Availability, Product } from "@/lib/catalog";
 import { loadStorefrontProducts } from "@/lib/data/storefront-catalog";
-import {
-  loadStorefrontCollections,
-  type StorefrontCollection,
-} from "@/lib/data/storefront-collections";
+import type { StorefrontCollection } from "@/lib/collections/collection-repository";
+import { loadStorefrontCollections } from "@/lib/data/storefront-collections";
 
 export type SearchSort =
   | "relevance"
