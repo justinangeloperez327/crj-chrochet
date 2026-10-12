@@ -1,92 +1,11 @@
-# Authentication and customer accounts
+# Customer accounts
 
-## Identity model
+Customers register at `/register` with a name, email and 12–200 character password. Email ownership must be verified before sign-in. Verification links expire after 24 hours and password-reset links after 30 minutes; both are single-use. Resend verification or request recovery from the sign-in page.
 
-Authentication uses three Prisma models:
+Configure Resend, the sending address and `APP_URL` to enable registration and recovery. Failed email delivery does not activate an account. Existing-account registration produces the same successful response without replacing credentials; an unverified customer can request another link.
 
-- `User` — login identity and role
-- `AuthSession` — opaque server-side sessions
-- `Customer` — commerce profile, addresses, and orders
+After verification, unassigned guest profiles and custom requests for that email can be linked to the account. A customer cannot claim a profile already assigned to someone else. Account pages show only that customer's orders, addresses and wishlist.
 
-A customer created previously through guest checkout is linked to the new user account when they register with the same normalized email address. Existing guest orders therefore remain visible after account creation.
+Passwords use salted scrypt hashes. Sessions use opaque random tokens whose hashes are stored in PostgreSQL. Cookies are HTTP-only, same-site, secure in production and expire after 30 days. Sign-out revokes the current session; resetting a password revokes every session. Expired or unverified sessions cannot authorize access.
 
-Roles:
-
-- `CUSTOMER`
-- `ADMIN`
-
-## Password storage
-
-Passwords are never stored directly.
-
-The application uses Node.js `crypto.scrypt` with:
-
-- a unique 16-byte random salt
-- a 64-byte derived key
-- timing-safe verification
-
-The stored password value includes the scrypt parameters, salt, and derived hash so parameters can be upgraded later.
-
-Registration currently requires at least 12 characters.
-
-## Sessions
-
-Successful login creates a 32-byte random opaque session token.
-
-The browser receives the raw token in an HTTP-only cookie:
-
-- `HttpOnly`
-- `SameSite=Lax`
-- `Secure` in production
-- 30-day expiry
-
-Only a SHA-256 hash of the token is stored in PostgreSQL.
-
-Logout deletes the current database session and expires the cookie.
-
-Expired database sessions are rejected even if the browser still presents a cookie.
-
-## Route protection
-
-`proxy.ts` provides the early redirect for:
-
-- `/account/*`
-- `/admin/*`
-
-Proxy checks for the presence of the session cookie only.
-
-Database validation and authorization happen inside server layouts/actions:
-
-- `requireUser()`
-- `requireAdmin()`
-
-This keeps authorization decisions server-side and database-backed.
-
-## Customer account
-
-`/account` includes:
-
-- profile
-- order summary
-- wishlist count
-- address count
-
-Additional routes:
-
-- `/account/orders`
-- `/account/wishlist`
-- `/account/addresses`
-
-Customers can update their profile, add/remove addresses, choose a default address, and view all orders associated with their commerce customer record.
-
-Address mutations always scope records to the authenticated customer's ID.
-
-## Wishlist
-
-Guest wishlist state remains local to the browser.
-
-When a signed-in user opens the storefront, the header loads their database wishlist and synchronizes local UI state to it.
-
-Heart actions update local UI immediately and also persist the change through `/api/wishlist` when a valid account session exists.
-
-The account wishlist page reads the database as the source of truth.
+Customer and administrator permissions are checked on the server. Mutating forms and JSON routes require same-origin requests. Database throttling limits repeated authentication requests by account and IP. Keep recovery and verification links confidential.

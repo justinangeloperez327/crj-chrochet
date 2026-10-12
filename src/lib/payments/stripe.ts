@@ -80,7 +80,7 @@ export async function createStripeCheckoutSession(orderId: string) {
   try {
     await db.paymentAttempt.upsert({
       where: { externalId: session.id },
-      update: {},
+      update: { checkoutUrl: session.url },
       create: {
         orderId: order.id,
         provider: "STRIPE",
@@ -93,6 +93,14 @@ export async function createStripeCheckoutSession(orderId: string) {
       },
     });
   } catch (error) {
+    // Prisma can emulate an upsert; concurrent callers may race on insert.
+    // A committed attempt for this same session must never be expired here.
+    if (typeof error === "object" && error !== null && "code" in error && error.code === "P2002") {
+      const existing = await db.paymentAttempt.findUnique({ where: { externalId: session.id } });
+      if (existing?.orderId === order.id && Number(existing.amount) === Number(order.total) && existing.currency === order.currency) {
+        return { id: session.id, url: session.url, expiresAt: new Date(session.expires_at * 1000) };
+      }
+    }
     await stripe.checkout.sessions.expire(session.id).catch(() => undefined);
     throw error;
   }
