@@ -79,6 +79,7 @@ export async function getCurrentSession() {
   });
 
   if (!session) return null;
+  if (!session.user.emailVerifiedAt) return null;
 
   if (session.expiresAt <= new Date()) {
     await db.authSession.delete({ where: { id: session.id } });

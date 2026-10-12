@@ -25,8 +25,8 @@ try {
   const passwordHash = await hashPassword(password);
   await db.user.upsert({
     where: { email },
-    update: { name, passwordHash, role: "ADMIN" },
-    create: { email, name, passwordHash, role: "ADMIN" },
+    update: { name, passwordHash, role: "ADMIN", emailVerifiedAt: new Date() },
+    create: { email, name, passwordHash, role: "ADMIN", emailVerifiedAt: new Date() },
   });
   console.info("Administrator account configured.");
 } finally {
