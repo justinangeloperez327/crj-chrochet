@@ -26,7 +26,7 @@ export function ProductPurchasePanel({ product }: { product: Product }) {
   const [added, setAdded] = useState(false);
   const wishlisted = useIsWishlisted(product.id);
 
-  const databaseVariants = product.variants ?? [];
+  const databaseVariants = useMemo(() => product.variants ?? [], [product.variants]);
 
   const sizeOptions = useMemo(() => {
     if (databaseVariants.length === 0) {
