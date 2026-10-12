@@ -165,3 +165,5 @@ back application code, use `vercel rollback <previous-deployment-url>` after
 reviewing the linked project. Rollback does not reverse database migrations.
 Keep database changes compatible with the prior application; restore data only
 through an independently reviewed recovery procedure.
+
+Install scripts are approved in package.json only for the locked Prisma engines, Prisma CLI, esbuild and unrs-resolver versions. After dependency updates, review `npm install-scripts ls` and approve specific reviewed packages; do not allow every script globally. Node is restricted to 24.x.
