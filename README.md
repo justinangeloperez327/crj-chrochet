@@ -1,31 +1,35 @@
-# CRJ Chrochet
+# Handmade Blooms by CRJ
 
-Next.js application foundation initialized with the current stable stack.
+Crochet flower and bouquet storefront with back-office inventory, production,
+customer management, discounts, checkout, and reporting.
 
 ## Stack
 
-- Next.js 16.4.0
-- React 19.3.0
-- TypeScript 7.0.2
-- Tailwind CSS 4.3.3
-- shadcn 4.21.1
-- shadcn/ui Base UI + Nova preset
-- ESLint 10.10.0
-- App Router
-- `src/` project layout
+- Next.js 16.4 + React 19.3, App Router, TypeScript
+- Tailwind CSS 4.3 + shadcn/ui (Base UI, Nova)
+- PostgreSQL + Prisma ORM 7
+- Stripe Checkout, Resend, Vercel Blob
 
-## Getting started
+## Local development
+
+Use Node.js 22 and an accessible PostgreSQL database.
 
 ```bash
-npm install
+npm ci
+cp .env.example .env
+# Edit .env and set DATABASE_URL and applicable service keys.
+npm run db:generate
+npm run db:deploy
+npm run db:seed
 npm run dev
 ```
 
-Open `http://localhost:3000`.
+Open http://localhost:3000.
 
-The first `npm install` will generate `package-lock.json`.
+The storefront includes a no-database fallback catalogue; accounts, orders,
+admin persistence, inventory and checkout require PostgreSQL.
 
-## Quality checks
+## Verification
 
 ```bash
 npm run lint
@@ -33,24 +37,13 @@ npm run typecheck
 npm run build
 ```
 
-## shadcn/ui
+## Deployment
 
-The project is initialized with the current Base UI default and the `base-nova` style.
+See [docs/deployment.md](docs/deployment.md) for the required environment,
+database migration, admin bootstrap, release checklist and Vercel commands.
 
-```bash
-npm run ui -- add button
-npm run ui -- add card
-```
+**Vercel Git auto-deployment is disabled.** Publish only through an explicit
+manual deployment. Do not apply migrations or seed demo records automatically
+during a build.
 
-
-## Database
-
-The persistence layer uses PostgreSQL + Prisma ORM 7. See [docs/database.md](docs/database.md) for the schema, setup, migration, seeding, and deployment workflow.
-
-```bash
-cp .env.example .env
-npm install
-npm run db:generate
-npm run db:migrate -- --name initial-commerce-schema
-npm run db:seed
-```
+Other feature details are in [docs](docs/).

@@ -145,7 +145,7 @@ export async function startCustomBouquetCheckout(
       let deliveryAmount: number;
 
       try {
-        deliveryAmount = getDeliveryRate(delivery.emirate);
+        deliveryAmount = await getDeliveryRate(delivery.emirate);
       } catch {
         throw new CustomBouquetCheckoutError(
           "Delivery is not configured for the selected emirate.",
@@ -165,23 +165,32 @@ export async function startCustomBouquetCheckout(
       let customerId = request.customerId;
 
       if (!customerId) {
-        const name = splitName(request.customerName);
-        const customer = await tx.customer.upsert({
+        const existingCustomer = await tx.customer.findUnique({
           where: { email: request.email },
-          update: {
-            firstName: name.firstName,
-            lastName: name.lastName,
-            phone: delivery.phone.trim(),
-          },
-          create: {
-            email: request.email,
-            firstName: name.firstName,
-            lastName: name.lastName,
-            phone: delivery.phone.trim(),
-          },
+          select: { userId: true },
         });
 
-        customerId = customer.id;
+        // Guest quote payment is not proof of account ownership.
+        // Keep this order unlinked if the email belongs to a registered user.
+        if (!existingCustomer?.userId) {
+          const name = splitName(request.customerName);
+          const customer = await tx.customer.upsert({
+            where: { email: request.email },
+            update: {
+              firstName: name.firstName,
+              lastName: name.lastName,
+              phone: delivery.phone.trim(),
+            },
+            create: {
+              email: request.email,
+              firstName: name.firstName,
+              lastName: name.lastName,
+              phone: delivery.phone.trim(),
+            },
+          });
+
+          customerId = customer.id;
+        }
       } else {
         await tx.customer.update({
           where: { id: customerId },

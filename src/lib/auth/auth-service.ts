@@ -33,6 +33,15 @@ export async function registerCustomer(input: {
   const user = await db.$transaction(async (tx) => {
     const customer = await tx.customer.findUnique({ where: { email } });
 
+    // A guest checkout's email is not proof of ownership of its order history.
+    // Do not claim legacy guest customers without a verified-email flow.
+    if (customer) {
+      throw new AuthError(
+        "This email has an existing guest checkout. Please contact support to verify ownership before registering.",
+        "ACCOUNT_VERIFICATION_REQUIRED",
+      );
+    }
+
     const created = await tx.user.create({
       data: {
         email,
@@ -45,31 +54,12 @@ export async function registerCustomer(input: {
     const [firstName, ...lastNameParts] = name.split(/\s+/);
     const lastName = lastNameParts.join(" ") || null;
 
-    const customerRecord = customer
-      ? await tx.customer.update({
-          where: { id: customer.id },
-          data: {
-            userId: created.id,
-            firstName: customer.firstName || firstName || null,
-            lastName: customer.lastName || lastName,
-          },
-        })
-      : await tx.customer.create({
-          data: {
-            userId: created.id,
-            email,
-            firstName: firstName || null,
-            lastName,
-          },
-        });
-
-    await tx.customBouquetRequest.updateMany({
-      where: {
-        customerId: null,
-        email,
-      },
+    await tx.customer.create({
       data: {
-        customerId: customerRecord.id,
+        userId: created.id,
+        email,
+        firstName: firstName || null,
+        lastName,
       },
     });
 

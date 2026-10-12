@@ -1,4 +1,5 @@
 import type { Prisma } from "@/generated/prisma/client";
+import { getCurrentSession } from "@/lib/auth/session";
 import {
   DiscountValidationError,
   reserveDiscountForOrder,
@@ -120,6 +121,7 @@ export async function createPendingOrder(input: CreateOrderInput) {
 
   validateOrderInput(input, settings);
   const db = requireDb();
+  const session = await getCurrentSession();
 
   return db.$transaction(
     async (tx) => {
@@ -154,56 +156,61 @@ export async function createPendingOrder(input: CreateOrderInput) {
       const recipient = `${firstName} ${lastName}`.trim();
       const phone = input.address.phone.trim();
 
-      const customer = await tx.customer.upsert({
+      // Checkout email is user-supplied. Do not attach a guest order to a
+      // registered customer's private history without that user's session.
+      const existingCustomer = await tx.customer.findUnique({
         where: { email },
-        update: {
-          firstName,
-          lastName,
-          phone,
-        },
-        create: {
-          email,
-          firstName,
-          lastName,
-          phone,
-        },
+        select: { userId: true },
       });
+      const canAssociate =
+        !existingCustomer?.userId ||
+        (session?.user.id === existingCustomer.userId &&
+          session.user.email === email);
+      const customer = canAssociate
+        ? await tx.customer.upsert({
+            where: { email },
+            update: { firstName, lastName, phone },
+            create: { email, firstName, lastName, phone },
+          })
+        : null;
 
       const addressLine1 = input.address.address.trim();
       const addressLine2 = input.address.apartment?.trim() || null;
       const city = input.address.city.trim();
       const emirate = input.address.emirate.trim();
 
-      const savedAddress = await tx.address.findFirst({
-        where: {
-          customerId: customer.id,
-          recipient,
-          addressLine1,
-          addressLine2,
-          city,
-          emirate,
-        },
-      });
-
-      if (!savedAddress) {
-        const addressCount = await tx.address.count({
-          where: { customerId: customer.id },
-        });
-
-        await tx.address.create({
-          data: {
+      if (customer) {
+        const savedAddress = await tx.address.findFirst({
+          where: {
             customerId: customer.id,
-            label: addressCount === 0 ? "Primary" : "Checkout address",
             recipient,
-            phone,
             addressLine1,
             addressLine2,
             city,
             emirate,
-            countryCode: "AE",
-            isDefault: addressCount === 0,
           },
         });
+
+        if (!savedAddress) {
+          const addressCount = await tx.address.count({
+            where: { customerId: customer.id },
+          });
+
+          await tx.address.create({
+            data: {
+              customerId: customer.id,
+              label: addressCount === 0 ? "Primary" : "Checkout address",
+              recipient,
+              phone,
+              addressLine1,
+              addressLine2,
+              city,
+              emirate,
+              countryCode: "AE",
+              isDefault: addressCount === 0,
+            },
+          });
+        }
       }
 
       const discountAmount = discount.amount;
@@ -232,7 +239,7 @@ export async function createPendingOrder(input: CreateOrderInput) {
       const order = await tx.order.create({
         data: {
           orderNumber,
-          customerId: customer.id,
+          customerId: customer?.id ?? null,
           discountId: discount.record?.id,
           customerEmail: email,
           customerPhone: phone,

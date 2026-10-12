@@ -3,9 +3,10 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Search, X } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 
 const RECENTS_KEY = "crj_recent_searches";
+
 
 type SuggestionResponse = {
   products: Array<{
@@ -22,6 +23,8 @@ type SuggestionResponse = {
   }>;
 };
 
+const EMPTY_RESULTS: SuggestionResponse = { products: [], collections: [] };
+
 export function StoreSearch({
   compact = false,
   initialQuery = "",
@@ -30,52 +33,60 @@ export function StoreSearch({
   initialQuery?: string;
 }) {
   const router = useRouter();
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [query, setQuery] = useState(initialQuery);
   const [open, setOpen] = useState(false);
-  const [results, setResults] = useState<SuggestionResponse>({
-    products: [],
-    collections: [],
-  });
-  const [recents, setRecents] = useState<string[]>([]);
-
-  useEffect(() => {
+  const [response, setResponse] = useState<{
+    query: string;
+    results: SuggestionResponse;
+  }>({ query: "", results: EMPTY_RESULTS });
+  const [recents, setRecents] = useState<string[]>(() => {
+    if (typeof window === "undefined") return [];
     try {
-      const parsed = JSON.parse(localStorage.getItem(RECENTS_KEY) ?? "[]");
-      if (Array.isArray(parsed)) {
-        setRecents(parsed.filter((item): item is string => typeof item === "string").slice(0, 5));
-      }
+      const parsed: unknown = JSON.parse(
+        window.localStorage.getItem(RECENTS_KEY) ?? "[]",
+      );
+      return Array.isArray(parsed)
+        ? parsed.filter((item): item is string => typeof item === "string").slice(0, 5)
+        : [];
     } catch {
-      setRecents([]);
+      return [];
     }
-  }, []);
+  });
 
   useEffect(() => {
-    if (timer.current) clearTimeout(timer.current);
-
     const trimmed = query.trim();
-    if (trimmed.length < 2) {
-      setResults({ products: [], collections: [] });
-      return;
-    }
+    if (trimmed.length < 2) return;
 
-    timer.current = setTimeout(async () => {
+    const controller = new AbortController();
+    const timeout = setTimeout(async () => {
       try {
-        const response = await fetch(`/api/search?q=${encodeURIComponent(trimmed)}`, {
+        const result = await fetch(`/api/search?q=${encodeURIComponent(trimmed)}`, {
           cache: "no-store",
+          signal: controller.signal,
         });
-        if (!response.ok) return;
-        const data = (await response.json()) as SuggestionResponse;
-        setResults(data);
+        if (!result.ok) return;
+        const data = (await result.json()) as SuggestionResponse;
+        if (!controller.signal.aborted) {
+          setResponse({ query: trimmed, results: data });
+        }
       } catch {
-        setResults({ products: [], collections: [] });
+        if (!controller.signal.aborted) {
+          setResponse({ query: trimmed, results: EMPTY_RESULTS });
+        }
       }
     }, 180);
 
     return () => {
-      if (timer.current) clearTimeout(timer.current);
+      clearTimeout(timeout);
+      controller.abort();
     };
   }, [query]);
+
+  // Never show suggestions belonging to a previous search term.
+  const results =
+    query.trim().length >= 2 && response.query === query.trim()
+      ? response.results
+      : EMPTY_RESULTS;
 
   function remember(value: string) {
     const normalized = value.trim();
@@ -122,7 +133,6 @@ export function StoreSearch({
             type="button"
             onClick={() => {
               setQuery("");
-              setResults({ products: [], collections: [] });
             }}
             className="absolute right-2 top-1/2 flex size-7 -translate-y-1/2 items-center justify-center text-bloom-muted"
             aria-label="Clear search"

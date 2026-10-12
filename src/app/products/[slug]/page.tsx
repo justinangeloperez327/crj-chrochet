@@ -10,6 +10,7 @@ import { ProductPurchasePanel } from "@/components/store/product-purchase-panel"
 import { SiteFooter } from "@/components/store/site-footer";
 import { SiteHeader } from "@/components/store/site-header";
 import { products as fallbackProducts } from "@/lib/catalog";
+import { listApprovedProductReviewsBySlug } from "@/lib/reviews/review-repository";
 import {
   loadStorefrontProductBySlug,
   loadStorefrontProducts,
@@ -61,6 +62,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
 
   if (!product) notFound();
 
+  const reviews = await listApprovedProductReviewsBySlug(slug);
   const products = await loadStorefrontProducts();
   const related = products
     .filter(

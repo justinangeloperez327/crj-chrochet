@@ -5,6 +5,11 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
 import { hashPassword } from "../src/lib/auth/password";
 
+// This command inserts demo customer/order-adjacent data: never run against production.
+if (process.env.NODE_ENV === "production" || process.env.VERCEL_ENV === "production") {
+  throw new Error("Demo seed is disabled in production. Use db:bootstrap-admin.");
+}
+
 const connectionString = process.env.DATABASE_URL;
 
 if (!connectionString) {

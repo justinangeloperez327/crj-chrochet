@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { ArrowLeft, ArrowRight, Gift, ShoppingBag } from "lucide-react";
-import { useEffect, useState } from "react";
 
 import { CartLineItem } from "@/components/store/cart-line-item";
 import {
@@ -26,29 +25,12 @@ export function CartPageClient({
   const cart = useCart();
   const subtotal = useCartSubtotal();
   const savedPreferences = useOrderPreferences();
-  const [isGift, setIsGift] = useState(false);
-  const [giftMessage, setGiftMessage] = useState("");
-  const [orderNote, setOrderNote] = useState("");
-
-  useEffect(() => {
-    setIsGift(giftOrdersEnabled && savedPreferences.isGift);
-    setGiftMessage(
-      giftOrdersEnabled
-        ? savedPreferences.giftMessage.slice(
-            0,
-            giftMessageMaxLength,
-          )
-        : "",
-    );
-    setOrderNote(
-      savedPreferences.orderNote.slice(0, orderNoteMaxLength),
-    );
-  }, [
-    giftMessageMaxLength,
-    giftOrdersEnabled,
-    orderNoteMaxLength,
-    savedPreferences,
-  ]);
+  // The preference store is the source of truth; no effect-driven mirror state.
+  const isGift = giftOrdersEnabled && savedPreferences.isGift;
+  const giftMessage = giftOrdersEnabled
+    ? savedPreferences.giftMessage.slice(0, giftMessageMaxLength)
+    : "";
+  const orderNote = savedPreferences.orderNote.slice(0, orderNoteMaxLength);
 
   function persistPreferences(next?: Partial<typeof savedPreferences>) {
     setOrderPreferences({
@@ -135,7 +117,6 @@ export function CartPageClient({
                   checked={isGift}
                   onChange={(event) => {
                     const checked = event.target.checked;
-                    setIsGift(checked);
                     persistPreferences({
                       isGift: checked,
                       giftMessage: checked ? giftMessage : "",
@@ -158,8 +139,7 @@ export function CartPageClient({
                     rows={4}
                     maxLength={giftMessageMaxLength}
                     value={giftMessage}
-                    onChange={(event) => setGiftMessage(event.target.value)}
-                    onBlur={() => persistPreferences()}
+                    onChange={(event) => persistPreferences({ giftMessage: event.target.value })}
                     placeholder="Write a short message to include with the bouquet."
                     className="mt-2 w-full resize-none border border-bloom-border bg-background px-3 py-3 text-sm text-bloom-plum outline-none placeholder:text-bloom-muted/70 focus:border-bloom-violet"
                   />
@@ -190,8 +170,7 @@ export function CartPageClient({
                 rows={4}
                 maxLength={orderNoteMaxLength}
                 value={orderNote}
-                onChange={(event) => setOrderNote(event.target.value)}
-                onBlur={() => persistPreferences()}
+                onChange={(event) => persistPreferences({ orderNote: event.target.value })}
                 placeholder="Optional preparation note"
                 className="mt-3 w-full resize-none border border-bloom-border bg-background px-3 py-3 text-sm text-bloom-plum outline-none placeholder:text-bloom-muted/70 focus:border-bloom-violet"
               />

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import {
-  Instagram,
+  Camera,
   Mail,
   MessageCircle,
   Phone,
@@ -43,7 +43,7 @@ export async function SiteFooter() {
       ? {
           label: "Instagram",
           href: settings.instagramUrl,
-          icon: Instagram,
+          icon: Camera,
         }
       : null,
     settings.whatsappUrl
@@ -73,7 +73,7 @@ export async function SiteFooter() {
     ): item is {
       label: string;
       href: string;
-      icon: typeof Instagram;
+      icon: typeof Camera;
     } => Boolean(item),
   );
 
