@@ -71,6 +71,12 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
             </button>
           </form>
 
+          <p className="mt-4 text-xs text-bloom-muted">
+            <Link href="/forgot-password" className="font-semibold text-bloom-violet">Forgot password?</Link>
+            {" · "}
+            <Link href="/verify-email" className="font-semibold text-bloom-violet">Resend verification</Link>
+          </p>
+
           <p className="mt-6 text-sm text-bloom-muted">
             New here?{" "}
             <Link href="/register" className="font-semibold text-bloom-violet">

@@ -82,6 +82,10 @@ export default async function RegisterPage({
             </button>
           </form>
 
+          <p className="mt-4 text-xs text-bloom-muted">
+            Check your inbox after registering. <Link href="/verify-email" className="font-semibold text-bloom-violet">Resend verification</Link>.
+          </p>
+
           <p className="mt-6 text-sm text-bloom-muted">
             Already have an account?{" "}
             <Link href="/login" className="font-semibold text-bloom-violet">

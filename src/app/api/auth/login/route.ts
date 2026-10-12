@@ -1,16 +1,19 @@
 import { NextResponse } from "next/server";
 
 import { AuthError, loginWithPassword } from "@/lib/auth/auth-service";
+import { enforceAuthRate, sameOriginForm } from "@/lib/auth/security";
 
 export const runtime = "nodejs";
 
 export async function POST(request: Request) {
+  if (!sameOriginForm(request)) return new Response("Forbidden", { status: 403 });
   const formData = await request.formData();
   const email = String(formData.get("email") ?? "");
   const password = String(formData.get("password") ?? "");
   const next = safeNext(String(formData.get("next") ?? "/account"));
 
   try {
+    await enforceAuthRate(request, "login", email, 10);
     const user = await loginWithPassword(email, password);
     const destination =
       user.role === "ADMIN" && next === "/account" ? "/admin" : next;

@@ -1,6 +1,7 @@
 import { requireDb } from "@/lib/db";
 import { hashPassword, verifyPassword } from "@/lib/auth/password";
 import { createSession } from "@/lib/auth/session";
+import { assertAuthEmailConfigured, sendAuthToken } from "@/lib/auth/email-tokens";
 
 export class AuthError extends Error {
   constructor(
@@ -28,45 +29,13 @@ export async function registerCustomer(input: {
     throw new AuthError("An account already exists for this email.", "EMAIL_EXISTS");
   }
 
+  // Email ownership must be verified before sessions or guest order claims.
+  assertAuthEmailConfigured();
   const passwordHash = await hashPassword(input.password);
-
-  const user = await db.$transaction(async (tx) => {
-    const customer = await tx.customer.findUnique({ where: { email } });
-
-    // A guest checkout's email is not proof of ownership of its order history.
-    // Do not claim legacy guest customers without a verified-email flow.
-    if (customer) {
-      throw new AuthError(
-        "This email has an existing guest checkout. Please contact support to verify ownership before registering.",
-        "ACCOUNT_VERIFICATION_REQUIRED",
-      );
-    }
-
-    const created = await tx.user.create({
-      data: {
-        email,
-        name,
-        passwordHash,
-        role: "CUSTOMER",
-      },
-    });
-
-    const [firstName, ...lastNameParts] = name.split(/\s+/);
-    const lastName = lastNameParts.join(" ") || null;
-
-    await tx.customer.create({
-      data: {
-        userId: created.id,
-        email,
-        firstName: firstName || null,
-        lastName,
-      },
-    });
-
-    return created;
+  const user = await db.user.create({
+    data: { email, name, passwordHash, role: "CUSTOMER" },
   });
-
-  await createSession(user.id);
+  await sendAuthToken(user.id, user.email, "EMAIL_VERIFICATION");
   return user;
 }
 
@@ -86,8 +55,17 @@ export async function loginWithPassword(emailInput: string, password: string) {
     throw new AuthError("Invalid email or password.", "INVALID_CREDENTIALS");
   }
 
+  if (!user.emailVerifiedAt) {
+    throw new AuthError("Verify your email before signing in. Request a new verification link if needed.", "EMAIL_UNVERIFIED");
+  }
   await createSession(user.id);
   return user;
+}
+
+export function validateNewPassword(password: string) {
+  if (password.length < 12 || password.length > 200) {
+    throw new AuthError("Password must contain 12–200 characters.", "WEAK_PASSWORD");
+  }
 }
 
 function validateRegistration(name: string, email: string, password: string) {

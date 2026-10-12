@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { getDb } from "@/lib/db";
 
 import { processNotificationOutbox } from "@/lib/notifications/notification-service";
 import { releaseExpiredReservations } from "@/lib/orders/order-lifecycle";
@@ -17,6 +18,12 @@ export async function GET(request: Request) {
     releaseExpiredReservations(),
     processNotificationOutbox(),
   ]);
+
+  const db = getDb();
+  if (db) {
+    await db.authToken.deleteMany({ where: { expiresAt: { lt: new Date() } } });
+    await db.authThrottle.deleteMany({ where: { windowStart: { lt: new Date(Date.now() - 86400000) } } });
+  }
 
   return NextResponse.json({
     ok: true,

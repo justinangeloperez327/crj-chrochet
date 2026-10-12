@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { enforceAuthRate } from "@/lib/auth/security";
 
 import {
   cancelPendingOrder,
@@ -17,6 +18,7 @@ export async function POST(request: Request) {
 
   try {
     const input = (await request.json()) as CreateOrderInput;
+    await enforceAuthRate(request, "checkout", String(input.email ?? ""), 20);
     const order = await createPendingOrder(input);
     orderId = order.id;
 
