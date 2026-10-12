@@ -14,7 +14,7 @@ customer management, discounts, checkout, and reporting.
 
 Use Node.js 22 and an accessible PostgreSQL database.
 
-\`\`\`bash
+```bash
 npm ci
 cp .env.example .env
 # Edit .env and set DATABASE_URL and applicable service keys.
@@ -22,7 +22,7 @@ npm run db:generate
 npm run db:deploy
 npm run db:seed
 npm run dev
-\`\`\`
+```
 
 Open http://localhost:3000.
 
@@ -31,11 +31,11 @@ admin persistence, inventory and checkout require PostgreSQL.
 
 ## Verification
 
-\`\`\`bash
+```bash
 npm run lint
 npm run typecheck
 npm run build
-\`\`\`
+```
 
 ## Deployment
 
