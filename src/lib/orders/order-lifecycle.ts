@@ -1,5 +1,5 @@
 import { getStripe } from "@/lib/payments/stripe";
-import type { Prisma } from "@/generated/prisma/client";
+import type { PaymentProvider, Prisma } from "@/generated/prisma/client";
 import {
   consumeDiscountReservationForPaidOrder,
   releaseDiscountReservationForOrder,
@@ -8,8 +8,9 @@ import { requireDb, runTransaction } from "@/lib/db";
 import { releaseCustomBouquetForOrder } from "@/lib/materials/material-service";
 import { ensureProductionJobForOrder } from "@/lib/production/production-service";
 
-export async function markOrderPaidFromStripe(
+export async function markOrderPaidForProvider(
   externalId: string,
+  provider: PaymentProvider,
   paymentIntentId?: string | null,
   payment?: { amountTotal: number | null; currency: string | null },
 ) {
@@ -20,8 +21,8 @@ export async function markOrderPaidFromStripe(
       include: { order: true },
     });
 
-    if (!attempt) return null;
-    if (payment && (payment.amountTotal !== Math.round(Number(attempt.amount) * 100) || payment.currency?.toLowerCase() !== attempt.currency.toLowerCase())) throw new Error("Stripe payment amount or currency mismatch.");
+    if (!attempt || attempt.provider !== provider) return null;
+    if (payment && (payment.amountTotal !== Math.round(Number(attempt.amount) * 100) || payment.currency?.toLowerCase() !== attempt.currency.toLowerCase())) throw new Error("Payment amount or currency mismatch.");
 
     if (
       ["PAID", "PARTIALLY_REFUNDED", "REFUNDED"].includes(
@@ -107,7 +108,7 @@ export async function markOrderPaidFromStripe(
   }, { isolationLevel: "Serializable" });
 }
 
-export async function markStripePaymentFailed(externalId: string) {
+export async function markPaymentFailedForProvider(externalId: string, provider: PaymentProvider) {
 
   return runTransaction(async (tx) => {
     const attempt = await tx.paymentAttempt.findUnique({
@@ -116,7 +117,7 @@ export async function markStripePaymentFailed(externalId: string) {
     });
 
     if (
-      !attempt ||
+      !attempt || attempt.provider !== provider ||
       ["PAID", "PARTIALLY_REFUNDED", "REFUNDED"].includes(
         attempt.order.paymentStatus,
       )
@@ -162,7 +163,7 @@ export async function markStripePaymentFailed(externalId: string) {
   }, { isolationLevel: "Serializable" });
 }
 
-export async function expireStripeCheckout(externalId: string) {
+export async function expireCheckoutForProvider(externalId: string, provider: PaymentProvider) {
 
   return runTransaction(async (tx) => {
     const attempt = await tx.paymentAttempt.findUnique({
@@ -170,7 +171,7 @@ export async function expireStripeCheckout(externalId: string) {
       include: { order: true },
     });
 
-    if (!attempt) return null;
+    if (!attempt || attempt.provider !== provider) return null;
 
     if (
       ["PAID", "PARTIALLY_REFUNDED", "REFUNDED"].includes(attempt.order.paymentStatus) ||
@@ -253,7 +254,14 @@ export async function releaseExpiredReservations(limit = 50) {
   let released = 0;
 
   for (const { id } of expired) {
-    const attempt = await db.paymentAttempt.findFirst({ where: { orderId: id, provider: "STRIPE" }, orderBy: { createdAt: "desc" } });
+    const attempt = await db.paymentAttempt.findFirst({ where: { orderId: id }, orderBy: { createdAt: "desc" } });
+    if (attempt?.provider === "ZIINA") {
+      if (attempt.externalId.startsWith("ziina-initializing:")) continue;
+      const { reconcileZiinaIntent } = await import("@/lib/payments/ziina");
+      const state = await reconcileZiinaIntent(attempt.externalId, id);
+      if (state && ["failed", "canceled"].includes(state.status)) released += 1;
+      continue;
+    }
     if (attempt) {
       // Local expiry is not proof of payment failure. Reconcile with Stripe
       // before releasing inventory, including delayed webhook delivery.
@@ -424,3 +432,10 @@ function getOutstandingReadyStockReservations(
 
   return outstanding;
 }
+
+// Preserve existing Stripe call sites while sharing the transactional lifecycle.
+export function markOrderPaidFromStripe(externalId: string, paymentIntentId?: string | null, payment?: { amountTotal: number | null; currency: string | null }) {
+  return markOrderPaidForProvider(externalId, "STRIPE", paymentIntentId, payment);
+}
+export function markStripePaymentFailed(externalId: string) { return markPaymentFailedForProvider(externalId, "STRIPE"); }
+export function expireStripeCheckout(externalId: string) { return expireCheckoutForProvider(externalId, "STRIPE"); }

@@ -7,9 +7,11 @@ import { clearCart } from "@/lib/commerce-store";
 
 export function OrderConfirmationSync({
   paid,
+  stopped = false,
   clearCartOnPaid = true,
 }: {
   paid: boolean;
+  stopped?: boolean;
   clearCartOnPaid?: boolean;
 }) {
   const router = useRouter();
@@ -22,6 +24,7 @@ export function OrderConfirmationSync({
       return;
     }
 
+    if (stopped) return;
     let refreshes = 0;
     const interval = window.setInterval(() => {
       refreshes += 1;
@@ -33,7 +36,7 @@ export function OrderConfirmationSync({
     }, 2500);
 
     return () => window.clearInterval(interval);
-  }, [clearCartOnPaid, paid, router]);
+  }, [clearCartOnPaid, paid, stopped, router]);
 
   return null;
 }

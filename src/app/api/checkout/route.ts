@@ -10,7 +10,8 @@ import {
   OrderCreationError,
   type CreateOrderInput,
 } from "@/lib/orders/order-service";
-import { createStripeCheckoutSession } from "@/lib/payments/stripe";
+import { createHostedCheckout } from "@/lib/payments/checkout-service";
+import { ZiinaError } from "@/lib/payments/ziina-client";
 
 export const runtime = "nodejs";
 
@@ -25,7 +26,7 @@ export async function POST(request: Request) {
     const order = await createPendingOrder(input);
     orderId = order.id;
 
-    const checkout = await createStripeCheckoutSession(order.id);
+    const checkout = await createHostedCheckout(order.id);
 
     return NextResponse.json({
       order: {
@@ -37,12 +38,14 @@ export async function POST(request: Request) {
       checkoutUrl: checkout.url,
     });
   } catch (error) {
-    if (orderId) {
+    if (orderId && !(error instanceof ZiinaError && error.ambiguous)) {
       await cancelPendingOrder(
         orderId,
         "Released because payment session creation failed",
       ).catch(() => undefined);
     }
+
+    if (error instanceof ZiinaError) return NextResponse.json({ error: error.message }, { status: error.status >= 500 ? 503 : error.status });
 
     if (error instanceof OrderCreationError) {
       return NextResponse.json(

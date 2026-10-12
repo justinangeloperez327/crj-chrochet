@@ -7,7 +7,8 @@ import {
   cancelPendingOrder,
 } from "@/lib/orders/order-lifecycle";
 import { createOrderNumber } from "@/lib/orders/order-number";
-import { createStripeCheckoutSession } from "@/lib/payments/stripe";
+import { createHostedCheckout } from "@/lib/payments/checkout-service";
+import { ZiinaError } from "@/lib/payments/ziina-client";
 
 export type CustomBouquetDeliveryInput = {
   recipient: string;
@@ -55,7 +56,7 @@ export async function startCustomBouquetCheckout(
   }
 
   if (
-    existing.order?.paymentStatus === "PAID"
+    ["PAID", "PARTIALLY_REFUNDED", "REFUNDED"].includes(existing.order?.paymentStatus ?? "")
   ) {
     throw new CustomBouquetCheckoutError(
       "This custom bouquet has already been paid.",
@@ -78,6 +79,13 @@ export async function startCustomBouquetCheckout(
       checkoutUrl: existingAttempt.checkoutUrl,
       reused: true,
     };
+  }
+
+  if (existingAttempt?.provider === "ZIINA" && existing.order?.status === "PENDING_PAYMENT") {
+    const { reconcileZiinaIntent } = await import("@/lib/payments/ziina");
+    if (existingAttempt.externalId.startsWith("ziina-initializing:")) throw new ZiinaError("A payment is being prepared. Please contact the store.", 409, true);
+    const state = await reconcileZiinaIntent(existingAttempt.externalId, existing.order.id);
+    if (!state || !["failed", "canceled"].includes(state.status)) throw new ZiinaError("The previous Ziina payment is still active or completed. Please contact the store before starting another.", 409, true);
   }
 
   if (
@@ -270,7 +278,7 @@ export async function startCustomBouquetCheckout(
     });
 
     createdOrderId = order.id;
-    const checkout = await createStripeCheckoutSession(order.id);
+    const checkout = await createHostedCheckout(order.id);
 
     return {
       orderId: order.id,
@@ -279,7 +287,7 @@ export async function startCustomBouquetCheckout(
       reused: false,
     };
   } catch (error) {
-    if (createdOrderId) {
+    if (createdOrderId && !(error instanceof ZiinaError && error.ambiguous)) {
       await cancelPendingOrder(
         createdOrderId,
         "Released because custom bouquet payment session creation failed",

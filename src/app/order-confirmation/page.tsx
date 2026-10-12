@@ -4,7 +4,7 @@ import { Check, Clock3, ShoppingBag } from "lucide-react";
 import { notFound } from "next/navigation";
 
 import { OrderConfirmationSync } from "@/components/store/order-confirmation-sync";
-import { getOrderConfirmationByStripeSession } from "@/lib/data/order-confirmation";
+import { getOrderConfirmationByPaymentReference } from "@/lib/data/order-confirmation";
 
 export const metadata: Metadata = {
   title: "Order Confirmation",
@@ -25,18 +25,20 @@ export default async function OrderConfirmationPage({
 
   if (!sessionId) notFound();
 
-  const attempt = await getOrderConfirmationByStripeSession(sessionId);
+  const attempt = await getOrderConfirmationByPaymentReference(sessionId);
 
   if (!attempt) notFound();
 
   const order = attempt.order;
-  const paid = order.paymentStatus === "PAID";
+  const paid = ["PAID", "PARTIALLY_REFUNDED", "REFUNDED"].includes(order.paymentStatus);
+  const cancelled = order.status === "CANCELLED";
   const customBouquet = order.customBouquetRequest;
 
   return (
     <div className="min-h-screen bg-background">
       <OrderConfirmationSync
         paid={paid}
+        stopped={cancelled}
         clearCartOnPaid={!customBouquet}
       />
 
@@ -67,10 +69,10 @@ export default async function OrderConfirmationPage({
           </div>
 
           <p className="mt-6 text-[10px] font-semibold tracking-[0.16em] text-bloom-pink uppercase">
-            {paid ? "Payment confirmed" : "Payment processing"}
+            {cancelled ? "Payment cancelled" : paid ? "Payment confirmed" : "Payment processing"}
           </p>
           <h1 className="mt-3 font-display text-4xl font-semibold tracking-[-0.045em] text-bloom-plum sm:text-5xl">
-            {paid
+            {cancelled ? "Your payment did not complete." : paid
               ? customBouquet
                 ? "Your custom bouquet is confirmed."
                 : "Your blooms are confirmed."
@@ -78,7 +80,7 @@ export default async function OrderConfirmationPage({
           </h1>
           <p className="mx-auto mt-4 max-w-xl text-sm leading-6 text-bloom-muted">
             Order <strong className="text-bloom-plum">{order.orderNumber}</strong>
-            {paid
+            {cancelled ? " was cancelled. Contact CRJ before making another payment." : paid
               ? customBouquet
                 ? ` is confirmed. CRJ can now prepare custom bouquet ${customBouquet.referenceNumber} for production.`
                 : " is confirmed and ready to move into preparation."

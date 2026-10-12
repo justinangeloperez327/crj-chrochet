@@ -114,7 +114,7 @@ function renderEmail(
         <p style="margin:28px 0">
           <a href="${escapeHtml(quote.paymentUrl)}" style="background:#321A32;color:white;text-decoration:none;padding:12px 18px;display:inline-block;font-weight:600">Complete delivery & payment</a>
         </p>
-        <p style="color:#756471;line-height:1.6">This quote expires on ${escapeHtml(formatEmailDate(quote.quoteExpiresAt))}. Delivery is calculated from the selected emirate before Stripe Checkout opens.</p>
+        <p style="color:#756471;line-height:1.6">This quote expires on ${escapeHtml(formatEmailDate(quote.quoteExpiresAt))}. Delivery is calculated from the selected emirate before secure checkout opens.</p>
       </div>
     `;
   }
@@ -144,7 +144,7 @@ function renderEmail(
     ORDER_REFUND_STARTED: {
       title: "Your refund has started",
       message:
-        "Stripe is processing the refund. We’ll update the order when the refund reaches its final state.",
+        "Your payment provider is processing the refund. We’ll update the order when the refund reaches its final state.",
     },
     ORDER_PARTIALLY_REFUNDED: {
       title: "A partial refund was completed",

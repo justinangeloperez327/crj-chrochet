@@ -1,3 +1,4 @@
+import { ZiinaError } from "@/lib/payments/ziina-client";
 import { sameOriginForm } from "@/lib/auth/security";
 import { NextResponse } from "next/server";
 
@@ -23,6 +24,7 @@ export async function POST(request: Request, { params }: Props) {
 
     return NextResponse.json(checkout);
   } catch (error) {
+    if (error instanceof ZiinaError) return NextResponse.json({ error: error.message }, { status: error.status >= 500 ? 503 : error.status });
     if (error instanceof CustomBouquetCheckoutError) {
       return NextResponse.json(
         { error: error.message },
