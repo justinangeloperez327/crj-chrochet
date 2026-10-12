@@ -35,3 +35,41 @@ jobs:
         run: npm run test
       - name: Build
         run: npm run build
+
+  database-integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: crj_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d crj_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/crj_test
+      ADMIN_EMAIL: ci-admin@example.invalid
+      ADMIN_PASSWORD: ci-only-not-for-production-2026
+      ADMIN_NAME: CI Admin
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Apply real SQL migrations to disposable PostgreSQL
+        run: npm run db:deploy
+      - name: Seed and bootstrap admin
+        run: |
+          npm run db:seed
+          npm run db:bootstrap-admin
+      - name: Test verified guest claiming and single-use recovery
+        run: npx tsx --test tests/database.integration.test.ts
