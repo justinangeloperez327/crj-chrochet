@@ -61,6 +61,7 @@ jobs:
       ADMIN_PASSWORD: ci-only-not-for-production-2026
       ADMIN_NAME: CI Admin
       ALLOW_DEMO_SEED: "true"
+      APP_URL: http://127.0.0.1:3000
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

@@ -63,7 +63,7 @@ test("admin signs in and operational pages render", async ({ page }) => {
   await page.getByLabel("Password", { exact: true }).fill(process.env.ADMIN_PASSWORD!);
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
   await expect(page).toHaveURL(/\/admin$/);
-  for (const route of ["products", "inventory", "orders", "materials", "settings", "production"]) {
+  for (const route of ["products", "inventory", "orders", "materials", "settings", "production", "bouquet-options"]) {
     expect((await page.goto("/admin/" + route))?.status()).toBe(200);
     await expect(page.locator("main")).toBeVisible();
   }

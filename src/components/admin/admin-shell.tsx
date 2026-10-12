@@ -25,6 +25,7 @@ const navigation = [
   { label: "Collections", href: "/admin/collections", icon: Layers },
   { label: "Inventory", href: "/admin/inventory", icon: Boxes },
   { label: "Materials", href: "/admin/materials", icon: FlaskConical },
+  { label: "Bouquet Options", href: "/admin/bouquet-options", icon: Flower2 },
   { label: "Custom Bouquets", href: "/admin/custom-bouquets", icon: WandSparkles },
   { label: "Production", href: "/admin/production", icon: Hammer },
   { label: "Orders", href: "/admin/orders", icon: PackageSearch },

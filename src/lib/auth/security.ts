@@ -1,10 +1,14 @@
 import { createHash } from "node:crypto";
 import { requireDb } from "@/lib/db";
 
+export function publicRequestOrigin(request: Request) {
+  return new URL(process.env.APP_URL || request.url).origin;
+}
+
 export function sameOriginForm(request: Request) {
   const origin = request.headers.get("origin");
   if (!origin) return false;
-  try { return new URL(origin).origin === new URL(request.url).origin; }
+  try { return new URL(origin).origin === publicRequestOrigin(request); }
   catch { return false; }
 }
 

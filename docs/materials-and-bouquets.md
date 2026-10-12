@@ -7,3 +7,5 @@ Finished products and raw materials have separate inventories. Stock on hand, re
 Customers request custom arrangements in `/build-a-bouquet`. The request includes stem choices, wrapping, recipient details and notes. Admins review the request, freeze its quoted price and material plan, set an expiry, and provide a payment link. Checkout calculates delivery separately. Payment retains the reservation until production consumes it.
 
 Email ownership must be verified before an account can claim unassigned guest requests. See [custom checkout](custom-bouquet-commerce.md) and [production](production-planning.md).
+
+Configure flower stems, wrapping, availability and material recipes in `/admin/bouquet-options`. The builder needs active stems and wrapping with recipes; production setup does not require demo seeding.

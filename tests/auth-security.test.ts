@@ -32,3 +32,15 @@ test("malformed password hashes fail closed without expensive invalid parameters
     assert.equal(await verifyPassword("password", hash), false);
   }
 });
+
+
+test("origin checks use configured public URL behind a proxy", () => {
+  const previous = process.env.APP_URL;
+  process.env.APP_URL = "https://store.example";
+  try {
+    assert.equal(sameOriginForm(new Request("http://localhost:3000/api/auth/login", { headers: { origin: "https://store.example" } })), true);
+    assert.equal(sameOriginForm(new Request("http://localhost:3000/api/auth/login", { headers: { origin: "https://attacker.example" } })), false);
+  } finally {
+    if (previous === undefined) delete process.env.APP_URL; else process.env.APP_URL = previous;
+  }
+});

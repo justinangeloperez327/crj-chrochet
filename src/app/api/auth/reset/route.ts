@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { resetPasswordWithToken } from "@/lib/auth/email-tokens";
-import { sameOriginForm } from "@/lib/auth/security";
+import { sameOriginForm , publicRequestOrigin } from "@/lib/auth/security";
 import { enforceAuthRate } from "@/lib/auth/security";
 
 export const runtime = "nodejs";
@@ -13,10 +13,10 @@ export async function POST(request: Request) {
     await enforceAuthRate(request, "reset", token.slice(0, 50), 8);
     const success = await resetPasswordWithToken(token, password);
     return NextResponse.redirect(
-      new URL(success ? "/login?reset=1" : "/forgot-password?error=expired", request.url),
+      new URL(success ? "/login?reset=1" : "/forgot-password?error=expired", publicRequestOrigin(request)),
       303,
     );
   } catch {
-    return NextResponse.redirect(new URL("/forgot-password?error=expired", request.url), 303);
+    return NextResponse.redirect(new URL("/forgot-password?error=expired", publicRequestOrigin(request)), 303);
   }
 }

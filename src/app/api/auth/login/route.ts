@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { AuthError, loginWithPassword } from "@/lib/auth/auth-service";
-import { enforceAuthRate, sameOriginForm, safeAccountRedirect } from "@/lib/auth/security";
+import { enforceAuthRate, sameOriginForm, safeAccountRedirect , publicRequestOrigin } from "@/lib/auth/security";
 
 export const runtime = "nodejs";
 
@@ -18,7 +18,7 @@ export async function POST(request: Request) {
     const destination =
       user.role === "ADMIN" && next === "/account" ? "/admin" : next;
 
-    return NextResponse.redirect(new URL(destination, request.url), 303);
+    return NextResponse.redirect(new URL(destination, publicRequestOrigin(request)), 303);
   } catch (error) {
     const message =
       error instanceof AuthError
@@ -27,7 +27,7 @@ export async function POST(request: Request) {
           ? "Account sign-in is not configured yet."
           : "Unable to sign in.";
 
-    const url = new URL("/login", request.url);
+    const url = new URL("/login", publicRequestOrigin(request));
     url.searchParams.set("error", message);
     url.searchParams.set("next", next);
 

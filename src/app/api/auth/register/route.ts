@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { AuthError, registerCustomer } from "@/lib/auth/auth-service";
-import { enforceAuthRate, sameOriginForm } from "@/lib/auth/security";
+import { enforceAuthRate, sameOriginForm , publicRequestOrigin } from "@/lib/auth/security";
 
 export const runtime = "nodejs";
 
@@ -15,7 +15,7 @@ export async function POST(request: Request) {
   try {
     await enforceAuthRate(request, "register", email, 5);
     await registerCustomer({ name, email, password });
-    return NextResponse.redirect(new URL("/verify-email?sent=1", request.url), 303);
+    return NextResponse.redirect(new URL("/verify-email?sent=1", publicRequestOrigin(request)), 303);
   } catch (error) {
     const message =
       error instanceof AuthError
@@ -24,7 +24,7 @@ export async function POST(request: Request) {
           ? "Account registration is not configured yet."
           : "Unable to create your account.";
 
-    const url = new URL("/register", request.url);
+    const url = new URL("/register", publicRequestOrigin(request));
     url.searchParams.set("error", message);
     url.searchParams.set("email", email);
 
