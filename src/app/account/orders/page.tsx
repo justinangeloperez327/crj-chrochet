@@ -1,4 +1,5 @@
 import { StatusBadge } from "@/components/admin/status-badge";
+import { ReviewForm } from "@/components/account/review-form";
 import { requireUser } from "@/lib/auth/guards";
 import { listAccountOrders } from "@/lib/data/account-repository";
 
@@ -67,7 +68,7 @@ export default async function AccountOrdersPage() {
                 {order.items.map((item) => (
                   <div
                     key={item.id}
-                    className="flex items-start justify-between gap-4 text-xs"
+                    className="grid grid-cols-[1fr_auto] items-start gap-4 text-xs"
                   >
                     <div>
                       <p className="font-semibold text-bloom-plum">
@@ -80,6 +81,23 @@ export default async function AccountOrdersPage() {
                     <p className="shrink-0 font-semibold text-bloom-plum">
                       AED {money(Number(item.lineTotal))}
                     </p>
+                    {order.paymentStatus === "PAID" &&
+                    order.status === "FULFILLED" &&
+                    order.fulfillmentStatus === "DELIVERED" &&
+                    item.productId ? (
+                      <div className="col-span-full w-full">
+                        {item.review ? (
+                          <p className="mt-3 text-[10px] font-semibold text-bloom-muted">
+                            Review · {item.review.rating}/5 · {item.review.status.toLowerCase()}
+                          </p>
+                        ) : (
+                          <ReviewForm
+                            orderItemId={item.id}
+                            productName={item.productName}
+                          />
+                        )}
+                      </div>
+                    ) : null}
                   </div>
                 ))}
               </div>

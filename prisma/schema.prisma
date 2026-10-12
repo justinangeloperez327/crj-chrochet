@@ -171,6 +171,12 @@ enum ProductionJobStatus {
   CANCELLED
 }
 
+enum ReviewStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 model StoreSettings {
   id                         String             @id @default("primary")
   businessName               String             @default("Handmade Blooms")
@@ -268,6 +274,7 @@ model Product {
   orderItems     OrderItem[]
   wishlistItems  WishlistItem[]
   discountRules  DiscountProduct[]
+  reviews        ProductReview[]
   createdAt      DateTime            @default(now())
   updatedAt      DateTime            @updatedAt
 
@@ -344,6 +351,7 @@ model User {
   wishlist     WishlistItem[]
   refundsInitiated Refund[] @relation("RefundInitiatedBy")
   customerNotesAuthored CustomerNote[] @relation("CustomerNoteAuthor")
+  reviews      ProductReview[]
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
 
@@ -623,11 +631,35 @@ model OrderItem {
   product     Product?        @relation(fields: [productId], references: [id], onDelete: SetNull)
   variant     ProductVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
   materialMovements RawMaterialMovement[]
+  review      ProductReview?
   createdAt   DateTime        @default(now())
 
   @@index([orderId])
   @@index([productId])
   @@index([variantId])
+}
+
+
+model ProductReview {
+  id          String       @id @default(cuid())
+  productId   String
+  userId      String
+  orderItemId String       @unique
+  rating      Int
+  title       String?
+  body        String
+  status      ReviewStatus @default(PENDING)
+  verifiedPurchase Boolean @default(true)
+  moderatedAt DateTime?
+  product     Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  orderItem   OrderItem    @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@index([productId, status, createdAt])
+  @@index([userId, createdAt])
+  @@index([status, createdAt])
 }
 
 model ProductionJob {

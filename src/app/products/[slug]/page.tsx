@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 
 import { ProductCard } from "@/components/store/product-card";
 import { ProductGallery } from "@/components/store/product-gallery";
+import { ProductReviews } from "@/components/store/product-reviews";
 import { ProductPurchasePanel } from "@/components/store/product-purchase-panel";
 import { SiteFooter } from "@/components/store/site-footer";
 import { SiteHeader } from "@/components/store/site-header";
@@ -156,6 +157,12 @@ export default async function ProductPage({ params }: ProductPageProps) {
           </div>
         </section>
       </main>
+
+      <ProductReviews
+        rating={product.rating}
+        reviewCount={product.reviewCount}
+        reviews={reviews}
+      />
 
       <SiteFooter />
     </div>

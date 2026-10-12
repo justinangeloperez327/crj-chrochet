@@ -64,6 +64,15 @@ export async function listAccountOrders(userId: string) {
     include: {
       items: {
         orderBy: { createdAt: "asc" },
+        include: {
+          review: {
+            select: {
+              id: true,
+              rating: true,
+              status: true,
+            },
+          },
+        },
       },
       refunds: {
         where: {

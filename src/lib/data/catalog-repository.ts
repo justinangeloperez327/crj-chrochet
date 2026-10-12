@@ -12,6 +12,10 @@ async function queryActiveProducts(db: PrismaClient) {
     where: { status: "ACTIVE" },
     include: {
       images: { orderBy: { sortOrder: "asc" } },
+      reviews: {
+        where: { status: "APPROVED" },
+        select: { rating: true },
+      },
       variants: {
         where: { isActive: true },
         orderBy: [{ price: "asc" }, { name: "asc" }],
@@ -26,6 +30,10 @@ async function queryActiveProductBySlug(db: PrismaClient, slug: string) {
     where: { slug, status: "ACTIVE" },
     include: {
       images: { orderBy: { sortOrder: "asc" } },
+      reviews: {
+        where: { status: "APPROVED" },
+        select: { rating: true },
+      },
       variants: {
         where: { isActive: true },
         orderBy: [{ price: "asc" }, { name: "asc" }],
@@ -179,8 +187,12 @@ export function mapDatabaseProduct(record: DatabaseProduct): Product {
     sizes: [...uniqueSizes.values()],
     variants,
     defaultVariant,
-    rating: 5,
-    reviewCount: 0,
+    rating:
+      record.reviews.length > 0
+        ? record.reviews.reduce((sum, review) => sum + review.rating, 0) /
+          record.reviews.length
+        : 0,
+    reviewCount: record.reviews.length,
     stock: readyStock,
     leadTime: defaultVariant?.leadTime,
     featured: record.featured,

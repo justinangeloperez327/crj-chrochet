@@ -5,6 +5,10 @@ import { mapDatabaseProduct } from "@/lib/data/catalog-repository";
 
 const collectionProductInclude = {
   images: { orderBy: { sortOrder: "asc" as const } },
+  reviews: {
+    where: { status: "APPROVED" as const },
+    select: { rating: true },
+  },
   variants: {
     where: { isActive: true },
     orderBy: [{ price: "asc" as const }, { name: "asc" as const }],

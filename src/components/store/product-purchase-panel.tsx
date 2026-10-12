@@ -106,14 +106,24 @@ export function ProductPurchasePanel({ product }: { product: Product }) {
   return (
     <div>
       <div className="flex items-center gap-2 text-xs">
-        <span className="text-[#d29a32]">★★★★★</span>
-        <span className="font-semibold text-bloom-plum">{product.rating}</span>
-        <span className="text-bloom-muted">
-          ·{" "}
-          {product.reviewCount > 0
-            ? `${product.reviewCount} reviews`
-            : "New to the shop"}
-        </span>
+        {product.reviewCount > 0 ? (
+          <>
+            <span className="text-[#d29a32]">
+              {"★".repeat(Math.round(product.rating))}
+              <span className="text-bloom-border">
+                {"★".repeat(5 - Math.round(product.rating))}
+              </span>
+            </span>
+            <span className="font-semibold text-bloom-plum">
+              {product.rating.toFixed(1)}
+            </span>
+            <span className="text-bloom-muted">
+              · {product.reviewCount} {product.reviewCount === 1 ? "review" : "reviews"}
+            </span>
+          </>
+        ) : (
+          <span className="text-bloom-muted">No reviews yet · Verified purchases only</span>
+        )}
       </div>
 
       <h1 className="mt-4 font-display text-4xl font-semibold tracking-[-0.04em] text-bloom-plum sm:text-5xl">
