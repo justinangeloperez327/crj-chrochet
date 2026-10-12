@@ -50,3 +50,14 @@ test("uncertain Ziina POST outcomes are distinguished from definite rejections",
     await assert.rejects(ziinaRequest("/payment_intent", { test: true }), (e: unknown) => e instanceof ZiinaError && !e.ambiguous && e.status === 400);
   } finally { mock.restoreAll(); if (previous === undefined) delete process.env.ZIINA_ACCESS_TOKEN; else process.env.ZIINA_ACCESS_TOKEN = previous; }
 });
+
+test("Ziina webhook rejects invalid signatures and disallowed sources before processing", async () => {
+  const { POST } = await import("../src/app/api/payments/ziina/webhook/route");
+  const previous = { secret: process.env.ZIINA_WEBHOOK_SECRET, vercel: process.env.VERCEL };
+  process.env.ZIINA_WEBHOOK_SECRET = "fixture"; delete process.env.VERCEL;
+  try {
+    const request = (source: string) => new Request("https://store.example/api/payments/ziina/webhook", { method: "POST", headers: { "x-forwarded-for": source, "x-hmac-signature": "bad" }, body: "{}" });
+    assert.equal((await POST(request("3.29.184.186"))).status, 401);
+    assert.equal((await POST(request("192.0.2.1"))).status, 403);
+  } finally { for (const [key, value] of [["ZIINA_WEBHOOK_SECRET", previous.secret], ["VERCEL", previous.vercel]]) { if (value === undefined) delete process.env[key!]; else process.env[key!] = value; } }
+});

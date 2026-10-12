@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { test, mock } from "node:test";
 import { requireDb } from "../src/lib/db";
 import { createZiinaCheckoutSession, reconcileZiinaIntent } from "../src/lib/payments/ziina";
-import { syncZiinaRefund } from "../src/lib/payments/refund-service";
+import { createPaymentRefund, syncZiinaRefund } from "../src/lib/payments/refund-service";
 
 function testDb() {
   const url = new URL(process.env.DATABASE_URL ?? "http://invalid");
@@ -81,5 +81,27 @@ test("ambiguous Ziina creation retains reservation and does not repeat the POST"
     mock.method(globalThis, "fetch", async () => Response.json({ id, account_id: "fixture-merchant", amount: 20000, currency_code: "AED", status: "completed", message: "CRJ payment " + attempt.id }));
     await reconcileZiinaIntent(id);
     assert.equal((await f.db.order.findUniqueOrThrow({ where: { id: f.order.id } })).paymentStatus, "PAID");
+  } finally { restore(); await f.cleanup(); }
+});
+
+test("Ziina refunds retain original test mode and support partial then full cancellation", async () => {
+  const restore = configure(); const f = await fixture();
+  const admin = await f.db.user.findFirstOrThrow({ where: { role: "ADMIN" } });
+  await f.db.paymentAttempt.update({ where: { externalId: f.externalId }, data: { status: "PAID", testMode: true, paidAt: new Date() } });
+  await f.db.order.update({ where: { id: f.order.id }, data: { status: "CONFIRMED", paymentStatus: "PAID" } });
+  process.env.ZIINA_TEST_MODE = "false"; let posts = 0;
+  mock.method(globalThis, "fetch", async (_url: unknown, options: RequestInit) => {
+    posts++; const body = JSON.parse(String(options.body));
+    assert.equal(body.test, true); assert.equal(body.amount, 10000); assert.equal(body.payment_intent_id, f.externalId); assert.equal(body.currency_code, "AED");
+    return Response.json({ ...body, status: "completed" });
+  });
+  try {
+    const input = { orderId: f.order.id, amount: 100, reason: "Fixture refund", initiatedByUserId: admin.id, cancelOrder: false, acknowledgeProductionLoss: false };
+    await createPaymentRefund(input);
+    assert.equal((await f.db.order.findUniqueOrThrow({ where: { id: f.order.id } })).paymentStatus, "PARTIALLY_REFUNDED");
+    await createPaymentRefund({ ...input, cancelOrder: true });
+    const order = await f.db.order.findUniqueOrThrow({ where: { id: f.order.id } });
+    assert.equal(order.paymentStatus, "REFUNDED"); assert.equal(order.status, "CANCELLED"); assert.equal(posts, 2);
+    assert.equal((await f.db.productVariant.findUniqueOrThrow({ where: { id: f.variant.id } })).stockReserved, 0);
   } finally { restore(); await f.cleanup(); }
 });

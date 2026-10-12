@@ -8,7 +8,7 @@ customer management, discounts, checkout, and reporting.
 - Next.js 16.4 + React 19.3, App Router, TypeScript
 - Tailwind CSS 4.3 + shadcn/ui (Base UI, Nova)
 - PostgreSQL + Prisma ORM 7
-- Stripe Checkout, Resend, Vercel Blob
+- Stripe or Ziina hosted checkout, Resend, Vercel Blob
 
 ## Local development
 
@@ -54,3 +54,5 @@ For real database and browser verification, use only a disposable PostgreSQL
 CI administrator, then run `npm run test:integration`, `npm run build`,
 `npx playwright install chromium`, and `npm run test:e2e`. CI runs these steps
 against PostgreSQL 16 and never deploys.
+
+Ziina payment setup and reconciliation: [docs/ziina.md](docs/ziina.md).
