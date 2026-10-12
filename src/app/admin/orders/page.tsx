@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Search } from "lucide-react";
 
 import { DatabaseRequired } from "@/components/admin/database-required";
 import { StatusBadge } from "@/components/admin/status-badge";
@@ -6,8 +7,13 @@ import { listAdminOrders } from "@/lib/data/admin-repository";
 
 export const metadata = { title: "Orders" };
 
-export default async function AdminOrdersPage() {
-  const orders = await listAdminOrders();
+type Props = {
+  searchParams: Promise<{ q?: string }>;
+};
+
+export default async function AdminOrdersPage({ searchParams }: Props) {
+  const { q = "" } = await searchParams;
+  const orders = await listAdminOrders(q);
 
   if (!orders) return <DatabaseRequired />;
 
@@ -25,7 +31,33 @@ export default async function AdminOrdersPage() {
         </p>
       </div>
 
-      <section className="mt-7 overflow-hidden border border-bloom-border bg-white">
+      <form method="get" className="mt-7 flex max-w-xl gap-2">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-bloom-muted" />
+          <input
+            name="q"
+            defaultValue={q}
+            placeholder="Order number, customer, email, phone, tracking…"
+            className="h-10 w-full border border-bloom-border bg-white pl-9 pr-3 text-xs outline-none focus:border-bloom-violet"
+          />
+        </div>
+        <button
+          type="submit"
+          className="h-10 bg-bloom-plum px-4 text-xs font-semibold text-white"
+        >
+          Search
+        </button>
+        {q ? (
+          <Link
+            href="/admin/orders"
+            className="inline-flex h-10 items-center border border-bloom-border bg-white px-4 text-xs font-semibold text-bloom-muted"
+          >
+            Clear
+          </Link>
+        ) : null}
+      </form>
+
+      <section className="mt-5 overflow-hidden border border-bloom-border bg-white">
         <div className="overflow-x-auto">
           <table className="min-w-[1050px] w-full text-left text-xs">
             <thead className="border-b border-bloom-border bg-[#faf8fa] text-[10px] uppercase tracking-[0.08em] text-bloom-muted">
@@ -86,7 +118,7 @@ export default async function AdminOrdersPage() {
 
         {orders.length === 0 ? (
           <p className="px-5 py-12 text-center text-sm text-bloom-muted">
-            No orders have been created yet.
+            {q ? "No orders match this search." : "No orders have been created yet."}
           </p>
         ) : null}
       </section>

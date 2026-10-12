@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ShopBrowser } from "@/components/store/shop-browser";
 import { SiteFooter } from "@/components/store/site-footer";
 import { SiteHeader } from "@/components/store/site-header";
+import { StoreSearch } from "@/components/store/store-search";
 import { loadStorefrontProducts } from "@/lib/data/storefront-catalog";
 import { loadStorefrontCollections } from "@/lib/data/storefront-collections";
 
@@ -43,6 +44,10 @@ export default async function ShopPage() {
                 Shop ready-to-ship pieces or choose a made-to-order bouquet in
                 your preferred color and size.
               </p>
+            </div>
+
+            <div className="mt-8 max-w-2xl">
+              <StoreSearch />
             </div>
 
             {featuredCollections.length > 0 ? (

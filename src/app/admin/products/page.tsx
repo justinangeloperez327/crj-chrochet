@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowRight, ImageIcon } from "lucide-react";
+import { ArrowRight, ImageIcon, Search } from "lucide-react";
 
 import { DatabaseRequired } from "@/components/admin/database-required";
 import { StatusBadge } from "@/components/admin/status-badge";
@@ -8,8 +8,13 @@ import { listAdminProducts } from "@/lib/data/admin-repository";
 
 export const metadata = { title: "Products" };
 
-export default async function AdminProductsPage() {
-  const products = await listAdminProducts();
+type Props = {
+  searchParams: Promise<{ q?: string }>;
+};
+
+export default async function AdminProductsPage({ searchParams }: Props) {
+  const { q = "" } = await searchParams;
+  const products = await listAdminProducts(q);
 
   if (!products) return <DatabaseRequired />;
 
@@ -36,7 +41,33 @@ export default async function AdminProductsPage() {
         </Link>
       </div>
 
-      <section className="mt-7 overflow-hidden border border-bloom-border bg-white">
+      <form method="get" className="mt-7 flex max-w-xl gap-2">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-bloom-muted" />
+          <input
+            name="q"
+            defaultValue={q}
+            placeholder="Search product, SKU, flower, color…"
+            className="h-10 w-full border border-bloom-border bg-white pl-9 pr-3 text-xs outline-none focus:border-bloom-violet"
+          />
+        </div>
+        <button
+          type="submit"
+          className="h-10 bg-bloom-plum px-4 text-xs font-semibold text-white"
+        >
+          Search
+        </button>
+        {q ? (
+          <Link
+            href="/admin/products"
+            className="inline-flex h-10 items-center border border-bloom-border bg-white px-4 text-xs font-semibold text-bloom-muted"
+          >
+            Clear
+          </Link>
+        ) : null}
+      </form>
+
+      <section className="mt-5 overflow-hidden border border-bloom-border bg-white">
         <div className="overflow-x-auto">
           <table className="min-w-[900px] w-full text-left text-xs">
             <thead className="border-b border-bloom-border bg-[#faf8fa] text-[10px] uppercase tracking-[0.08em] text-bloom-muted">

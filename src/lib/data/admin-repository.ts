@@ -98,11 +98,39 @@ export async function getAdminDashboardData() {
   };
 }
 
-export async function listAdminProducts() {
+export async function listAdminProducts(q?: string) {
   const db = getDb();
   if (!db) return null;
+  const query = q?.trim();
 
   return db.product.findMany({
+    where: query
+      ? {
+          OR: [
+            { name: { contains: query, mode: "insensitive" } },
+            { slug: { contains: query, mode: "insensitive" } },
+            { flowerType: { contains: query, mode: "insensitive" } },
+            {
+              category: {
+                is: {
+                  name: { contains: query, mode: "insensitive" },
+                },
+              },
+            },
+            {
+              variants: {
+                some: {
+                  OR: [
+                    { sku: { contains: query, mode: "insensitive" } },
+                    { name: { contains: query, mode: "insensitive" } },
+                    { colorName: { contains: query, mode: "insensitive" } },
+                  ],
+                },
+              },
+            },
+          ],
+        }
+      : undefined,
     include: {
       category: { select: { name: true } },
       images: {
@@ -184,11 +212,33 @@ export async function listAdminInventory() {
   return { variants, movements };
 }
 
-export async function listAdminOrders() {
+export async function listAdminOrders(q?: string) {
   const db = getDb();
   if (!db) return null;
+  const query = q?.trim();
 
   return db.order.findMany({
+    where: query
+      ? {
+          OR: [
+            { orderNumber: { contains: query, mode: "insensitive" } },
+            { customerEmail: { contains: query, mode: "insensitive" } },
+            { customerPhone: { contains: query, mode: "insensitive" } },
+            { trackingNumber: { contains: query, mode: "insensitive" } },
+            {
+              customer: {
+                is: {
+                  OR: [
+                    { firstName: { contains: query, mode: "insensitive" } },
+                    { lastName: { contains: query, mode: "insensitive" } },
+                    { email: { contains: query, mode: "insensitive" } },
+                  ],
+                },
+              },
+            },
+          ],
+        }
+      : undefined,
     take: 100,
     orderBy: { createdAt: "desc" },
     include: {

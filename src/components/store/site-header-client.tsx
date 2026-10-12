@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 
 import { CartDrawer } from "@/components/store/cart-drawer";
+import { StoreSearch } from "@/components/store/store-search";
 import {
   syncWishlistFromAccount,
   useCartCount,
@@ -78,9 +79,12 @@ export function SiteHeaderClient({
           </nav>
 
           <div className="flex items-center gap-1 sm:gap-2">
+            <div className="hidden xl:block">
+              <StoreSearch compact />
+            </div>
             <Link
-              href="/shop"
-              className="hidden size-9 items-center justify-center text-bloom-plum transition-colors hover:text-bloom-pink sm:flex"
+              href="/search"
+              className="hidden size-9 items-center justify-center text-bloom-plum transition-colors hover:text-bloom-pink sm:flex xl:hidden"
               aria-label="Search products"
             >
               <Search className="size-[18px]" />
