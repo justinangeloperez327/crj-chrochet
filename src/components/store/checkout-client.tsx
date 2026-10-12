@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 import { useState, type FormEvent } from "react";
 
-import { BloomArtwork } from "@/components/store/bloom-art";
+import { ProductMedia } from "@/components/store/product-media";
 import {
   useCart,
   useCartSubtotal,
@@ -535,10 +535,20 @@ export function CheckoutClient({
                     className="flex gap-3"
                   >
                     <div className="relative size-16 shrink-0 overflow-hidden border border-bloom-border">
-                      <BloomArtwork
+                      <ProductMedia
+                        image={
+                          line.imageUrl
+                            ? {
+                                url: line.imageUrl,
+                                altText: line.imageAlt || line.name,
+                              }
+                            : product?.images?.[0]
+                        }
+                        alt={line.name}
                         tone={product?.tone ?? "rose"}
                         compact
                         className="absolute inset-0"
+                        sizes="64px"
                       />
                       <span className="absolute -right-1 -top-1 flex size-5 items-center justify-center rounded-full bg-bloom-plum text-[9px] font-bold text-white">
                         {line.quantity}

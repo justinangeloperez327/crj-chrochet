@@ -4,7 +4,7 @@ import Link from "next/link";
 import { Check, Heart, ShoppingBag } from "lucide-react";
 import { useState } from "react";
 
-import { BloomArtwork } from "@/components/store/bloom-art";
+import { ProductMedia } from "@/components/store/product-media";
 import {
   addToCart,
   toggleWishlist,
@@ -42,6 +42,8 @@ export function ProductCard({ product }: { product: Product }) {
       colorName: defaultVariant?.colorName ?? defaultColor?.name,
       sizeName: defaultVariant?.sizeName ?? defaultSize?.name,
       stems: defaultVariant?.stems ?? defaultSize?.stems,
+      imageUrl: product.images?.[0]?.url,
+      imageAlt: product.images?.[0]?.altText,
       name: product.name,
       quantity: 1,
       unitPrice: defaultVariant?.price ?? product.price,
@@ -62,10 +64,14 @@ export function ProductCard({ product }: { product: Product }) {
           className="absolute inset-0"
           aria-label={`View ${product.name}`}
         >
-          <BloomArtwork
+          <ProductMedia
+            image={product.images?.[0]}
+            alt={product.name}
             tone={product.tone}
             compact
-            className="absolute inset-0 transition-transform duration-500 ease-out group-hover:scale-[1.025]"
+            className="absolute inset-0"
+            imageClassName="transition-transform duration-500 ease-out group-hover:scale-[1.025]"
+            sizes="(max-width: 768px) 50vw, 25vw"
           />
         </Link>
 

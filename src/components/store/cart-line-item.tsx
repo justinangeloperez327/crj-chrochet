@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { Minus, Plus, Trash2 } from "lucide-react";
 
-import { BloomArtwork } from "@/components/store/bloom-art";
+import { ProductMedia } from "@/components/store/product-media";
 import {
   removeCartLine,
   updateCartLineQuantity,
@@ -21,20 +21,34 @@ export function CartLineItem({
   compact?: boolean;
 }) {
   const product = products.find((item) => item.id === line.productId);
+  const href = line.productSlug
+    ? `/products/${line.productSlug}`
+    : product
+      ? `/products/${product.slug}`
+      : "/shop";
+  const media = line.imageUrl
+    ? {
+        url: line.imageUrl,
+        altText: line.imageAlt || line.name,
+      }
+    : product?.images?.[0];
 
   return (
     <div className="flex gap-4 border-b border-bloom-border py-5 first:pt-0">
       <Link
-        href={product ? `/products/${product.slug}` : "/shop"}
+        href={href}
         className={
           "relative shrink-0 overflow-hidden border border-bloom-border bg-white " +
           (compact ? "size-20" : "size-24 sm:size-28")
         }
       >
-        <BloomArtwork
+        <ProductMedia
+          image={media}
+          alt={line.name}
           tone={product?.tone ?? "rose"}
           compact
           className="absolute inset-0"
+          sizes={compact ? "80px" : "112px"}
         />
       </Link>
 
@@ -42,7 +56,7 @@ export function CartLineItem({
         <div className="flex items-start justify-between gap-3">
           <div>
             <Link
-              href={product ? `/products/${product.slug}` : "/shop"}
+              href={href}
               className="text-sm font-semibold text-bloom-plum hover:text-bloom-pink"
             >
               {line.name}

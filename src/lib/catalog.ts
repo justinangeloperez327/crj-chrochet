@@ -14,6 +14,13 @@ export type ProductSize = {
   price: number;
 };
 
+export type ProductImageAsset = {
+  id?: string;
+  url: string;
+  altText: string;
+  sortOrder?: number;
+};
+
 export type ProductVariantOption = {
   id?: string;
   sku?: string;
@@ -47,6 +54,7 @@ export type Product = {
   stock: number;
   leadTime?: string;
   featured?: boolean;
+  images?: ProductImageAsset[];
 };
 
 export type ProductPreview = Pick<
@@ -60,6 +68,7 @@ export type ProductPreview = Pick<
   | "availability"
   | "badge"
   | "tone"
+  | "images"
 > & {
   defaultVariant?: ProductVariantOption;
 };

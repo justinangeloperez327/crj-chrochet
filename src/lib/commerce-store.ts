@@ -15,6 +15,8 @@ export type CartLine = {
   colorName?: string;
   sizeName?: string;
   stems?: number;
+  imageUrl?: string;
+  imageAlt?: string;
   name: string;
   quantity: number;
   unitPrice: number;

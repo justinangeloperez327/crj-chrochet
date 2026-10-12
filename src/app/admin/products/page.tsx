@@ -1,5 +1,6 @@
+import Image from "next/image";
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, ImageIcon } from "lucide-react";
 
 import { DatabaseRequired } from "@/components/admin/database-required";
 import { StatusBadge } from "@/components/admin/status-badge";
@@ -62,15 +63,34 @@ export default async function AdminProductsPage() {
                     className="border-b border-bloom-border last:border-b-0"
                   >
                     <td className="px-5 py-4">
-                      <Link
-                        href={`/admin/products/${product.id}`}
-                        className="font-semibold hover:text-bloom-pink"
-                      >
-                        {product.name}
-                      </Link>
-                      <p className="mt-1 text-[10px] text-bloom-muted">
-                        {product.flowerType} · /{product.slug}
-                      </p>
+                      <div className="flex items-center gap-3">
+                        <div className="relative size-12 shrink-0 overflow-hidden border border-bloom-border bg-[#faf8fa]">
+                          {product.images[0] ? (
+                            <Image
+                              src={product.images[0].url}
+                              alt={product.images[0].altText || product.name}
+                              fill
+                              sizes="48px"
+                              className="object-cover"
+                            />
+                          ) : (
+                            <div className="flex size-full items-center justify-center text-bloom-muted">
+                              <ImageIcon className="size-4" />
+                            </div>
+                          )}
+                        </div>
+                        <div>
+                          <Link
+                            href={`/admin/products/${product.id}`}
+                            className="font-semibold hover:text-bloom-pink"
+                          >
+                            {product.name}
+                          </Link>
+                          <p className="mt-1 text-[10px] text-bloom-muted">
+                            {product.flowerType} · /{product.slug}
+                          </p>
+                        </div>
+                      </div>
                     </td>
                     <td className="px-5 py-4">
                       <StatusBadge value={product.status} />

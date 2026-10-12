@@ -9,6 +9,7 @@ import {
   updateVariant,
 } from "@/app/admin/actions";
 import { DatabaseRequired } from "@/components/admin/database-required";
+import { ProductMediaManager } from "@/components/admin/product-media-manager";
 import { StatusBadge } from "@/components/admin/status-badge";
 import { getAdminProduct } from "@/lib/data/admin-repository";
 
@@ -74,7 +75,20 @@ export default async function AdminProductPage({ params }: ProductPageProps) {
         </div>
       </div>
 
-      <div className="mt-7 grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
+      <div className="mt-7">
+        <ProductMediaManager
+          productId={product.id}
+          productName={product.name}
+          initialImages={product.images.map((image) => ({
+            id: image.id,
+            url: image.url,
+            altText: image.altText ?? product.name,
+            sortOrder: image.sortOrder,
+          }))}
+        />
+      </div>
+
+      <div className="mt-6 grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
         <section className="border border-bloom-border bg-white p-6">
           <div className="flex items-center justify-between">
             <div>

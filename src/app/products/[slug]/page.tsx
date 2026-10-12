@@ -3,8 +3,8 @@ import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 import { notFound } from "next/navigation";
 
-import { BloomArtwork } from "@/components/store/bloom-art";
 import { ProductCard } from "@/components/store/product-card";
+import { ProductGallery } from "@/components/store/product-gallery";
 import { ProductPurchasePanel } from "@/components/store/product-purchase-panel";
 import { SiteFooter } from "@/components/store/site-footer";
 import { SiteHeader } from "@/components/store/site-header";
@@ -30,9 +30,27 @@ export async function generateMetadata({
 
   if (!product) return {};
 
+  const primaryImage = product.images?.[0];
+
   return {
     title: product.name,
     description: product.description,
+    openGraph: primaryImage
+      ? {
+          images: [
+            {
+              url: primaryImage.url,
+              alt: primaryImage.altText,
+            },
+          ],
+        }
+      : undefined,
+    twitter: primaryImage
+      ? {
+          card: "summary_large_image",
+          images: [primaryImage.url],
+        }
+      : undefined,
   };
 }
 
@@ -79,22 +97,11 @@ export default async function ProductPage({ params }: ProductPageProps) {
         </div>
 
         <section className="mx-auto grid max-w-[1440px] gap-10 px-5 pb-18 sm:px-8 lg:grid-cols-[1.08fr_0.92fr] lg:gap-16 lg:px-12 lg:pb-24">
-          <div className="grid grid-cols-2 gap-3">
-            <BloomArtwork
-              tone={product.tone}
-              className="col-span-2 aspect-[5/4] border border-bloom-border"
-            />
-            <BloomArtwork
-              tone={product.colors[1]?.tone ?? product.tone}
-              compact
-              className="aspect-square border border-bloom-border"
-            />
-            <BloomArtwork
-              tone={product.colors[2]?.tone ?? product.tone}
-              compact
-              className="aspect-square border border-bloom-border"
-            />
-          </div>
+          <ProductGallery
+            name={product.name}
+            tone={product.tone}
+            images={product.images ?? []}
+          />
 
           <div className="lg:sticky lg:top-28 lg:self-start">
             <ProductPurchasePanel product={product} />

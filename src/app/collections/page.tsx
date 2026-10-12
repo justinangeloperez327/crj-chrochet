@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRight, Layers } from "lucide-react";
 
-import { BloomArtwork } from "@/components/store/bloom-art";
+import { ProductMedia } from "@/components/store/product-media";
 import { SiteFooter } from "@/components/store/site-footer";
 import { SiteHeader } from "@/components/store/site-header";
 import { loadStorefrontCollections } from "@/lib/data/storefront-collections";
@@ -50,10 +50,13 @@ export default async function CollectionsPage() {
                   href={`/collections/${collection.slug}`}
                   className="group grid overflow-hidden border border-bloom-border bg-white sm:grid-cols-[0.85fr_1.15fr]"
                 >
-                  <BloomArtwork
+                  <ProductMedia
+                    image={collection.products[0]?.images?.[0]}
+                    alt={collection.name}
                     tone={collection.tone}
                     compact
                     className="aspect-[5/4] min-h-full border-b border-bloom-border sm:border-b-0 sm:border-r"
+                    sizes="(max-width: 768px) 100vw, 42vw"
                   />
                   <div className="flex min-h-64 flex-col justify-between p-6 sm:p-7">
                     <div>

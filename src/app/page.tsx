@@ -10,6 +10,7 @@ import {
 
 import { BloomArtwork } from "@/components/store/bloom-art";
 import { ProductCard } from "@/components/store/product-card";
+import { ProductMedia } from "@/components/store/product-media";
 import { SiteFooter } from "@/components/store/site-footer";
 import { SiteHeader } from "@/components/store/site-header";
 import { loadStorefrontProducts } from "@/lib/data/storefront-catalog";
@@ -149,10 +150,14 @@ export default async function Home() {
                   className="group block"
                 >
                   <div className="relative aspect-[4/5] overflow-hidden border border-bloom-border bg-white">
-                    <BloomArtwork
+                    <ProductMedia
+                      image={collection.products[0]?.images?.[0]}
+                      alt={collection.name}
                       tone={collection.tone}
                       compact
-                      className="absolute inset-0 transition-transform duration-500 group-hover:scale-[1.035]"
+                      className="absolute inset-0"
+                      imageClassName="transition-transform duration-500 group-hover:scale-[1.035]"
+                      sizes="(max-width: 768px) 100vw, 33vw"
                     />
                     <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-bloom-plum/80 via-bloom-plum/35 to-transparent p-5 pt-20 text-white">
                       <p className="font-display text-2xl font-semibold">

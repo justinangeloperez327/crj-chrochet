@@ -92,6 +92,8 @@ export function ProductPurchasePanel({ product }: { product: Product }) {
       colorName: selectedVariant?.colorName ?? selectedColor?.name,
       sizeName: selectedVariant?.sizeName ?? selectedOption?.name,
       stems,
+      imageUrl: product.images?.[0]?.url,
+      imageAlt: product.images?.[0]?.altText,
       name: product.name,
       quantity,
       unitPrice,

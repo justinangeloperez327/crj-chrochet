@@ -105,6 +105,10 @@ export async function listAdminProducts() {
   return db.product.findMany({
     include: {
       category: { select: { name: true } },
+      images: {
+        orderBy: { sortOrder: "asc" },
+        take: 1,
+      },
       _count: { select: { variants: true, orderItems: true } },
       variants: {
         where: { isActive: true },
@@ -127,6 +131,9 @@ export async function getAdminProduct(id: string) {
     where: { id },
     include: {
       category: true,
+      images: {
+        orderBy: { sortOrder: "asc" },
+      },
       variants: {
         orderBy: [{ isActive: "desc" }, { name: "asc" }],
         include: {

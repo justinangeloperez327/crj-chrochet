@@ -184,6 +184,14 @@ export function mapDatabaseProduct(record: DatabaseProduct): Product {
     stock: readyStock,
     leadTime: defaultVariant?.leadTime,
     featured: record.featured,
+    images: record.images.map((image) => ({
+      id: image.id,
+      url: image.url,
+      altText:
+        image.altText?.trim() ||
+        `${record.name} handmade crochet flowers`,
+      sortOrder: image.sortOrder,
+    })),
   };
 }
 
