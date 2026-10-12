@@ -12,7 +12,7 @@ customer management, discounts, checkout, and reporting.
 
 ## Local development
 
-Use Node.js 22 and an accessible PostgreSQL database.
+Use Node.js 24 and an accessible PostgreSQL database.
 
 ```bash
 npm ci

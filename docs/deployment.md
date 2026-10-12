@@ -13,7 +13,7 @@ Do **not** change this setting without deciding to enable auto-deployments.
 
 ## Before the first deployment
 
-1. Install Node.js 22 and npm. Run `npm ci`.
+1. Install Node.js 24 and npm. Run `npm ci`.
 2. Create a PostgreSQL database, set `DATABASE_URL` in the Vercel project's
    environment variables, and restrict database access appropriately.
 3. Configure `APP_URL` with the *actual* HTTPS production site URL.
@@ -110,7 +110,7 @@ branches. Keep `git.deploymentEnabled: false`; CI has no deployment steps.
 Project dashboard settings cannot be verified from repository configuration
 alone. Review the linked team/project before running `vercel deploy --prod`.
 
-Use Node.js 22 in Vercel, matching CI. Set every required environment variable
+Use Node.js 24 in Vercel, matching CI. Set every required environment variable
 in Production and in your manually deployed staging project. Do not reuse live
 Stripe keys or a production database for tests. Configure the same region for
 your PostgreSQL database and functions where practical.

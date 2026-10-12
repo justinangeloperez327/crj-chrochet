@@ -11,7 +11,7 @@
 
 ## Required environment
 
-Create a Vercel project linked to `justinangeloperez327/crj-chrochet`, using Node 22 or newer.
+Create a Vercel project linked to `justinangeloperez327/crj-chrochet`, using Node 24 or newer.
 Configure `DATABASE_URL`, `APP_URL`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`,
 `CHECKOUT_RETURN_SECRET`, `RESEND_API_KEY`, `ORDER_EMAIL_FROM`,
 `CRON_SECRET`, and Vercel Blob connection/token where needed.

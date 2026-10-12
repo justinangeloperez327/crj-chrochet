@@ -5,6 +5,7 @@ import { hashPassword } from "../../src/lib/auth/password";
 
 const email = "e2e-customer@example.invalid";
 const password = "e2e isolated customer password";
+const stemSlug = "e2e-stem-" + randomUUID();
 const db = new Pool({ connectionString: process.env.DATABASE_URL });
 
 test.beforeAll(async () => {
@@ -19,6 +20,7 @@ test.beforeAll(async () => {
 test.afterAll(async () => {
   await db.query('DELETE FROM "Customer" WHERE email=$1', [email]);
   await db.query('DELETE FROM "User" WHERE email=$1', [email]);
+  await db.query('DELETE FROM "BouquetStemOption" WHERE slug=$1', [stemSlug]);
   await db.end();
 });
 
@@ -67,6 +69,18 @@ test("admin signs in and operational pages render", async ({ page }) => {
     expect((await page.goto("/admin/" + route))?.status()).toBe(200);
     await expect(page.locator("main")).toBeVisible();
   }
+  await page.goto("/admin/bouquet-options");
+  const create = page.getByTestId("new-stem");
+  await create.getByLabel("Slug", { exact: true }).fill(stemSlug);
+  await create.getByLabel("Flower", { exact: true }).fill("Test flower");
+  await create.getByLabel("Colour name", { exact: true }).fill("Pink");
+  await create.getByLabel("Price (AED)", { exact: true }).fill("9.99");
+  await create.getByRole("button", { name: "Create option" }).click();
+  await expect.poll(async () => (await db.query('SELECT COUNT(*)::int AS count FROM "BouquetStemOption" WHERE slug=$1', [stemSlug])).rows[0].count).toBe(1);
+  const edit = page.getByTestId("edit-stem").filter({ has: page.locator(`input[name="slug"][value="${stemSlug}"]`) });
+  await edit.getByLabel("Active", { exact: true }).uncheck();
+  await edit.getByRole("button", { name: "Save option" }).click();
+  await expect.poll(async () => (await db.query('SELECT "isActive" FROM "BouquetStemOption" WHERE slug=$1', [stemSlug])).rows[0].isActive).toBe(false);
 });
 
 test("password reset revokes browser session", async ({ page, request }) => {
