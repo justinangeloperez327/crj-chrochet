@@ -53,7 +53,22 @@ from-empty initial migration to a populated database. Baseline with
 `prisma migrate resolve --applied 0_init` only after independently verifying
 the existing schema matches the expected migration.
 
-To create or rotate the production admin without importing demo products:
+To create the admin entirely through Vercel, add `ADMIN_EMAIL`,
+`ADMIN_PASSWORD` (a unique password of 12–200 characters), and `ADMIN_NAME`
+to the project's Production environment variables. Manually deploy, open
+`/login`, and sign in with that email and password. The first correct login
+creates a verified ADMIN account and opens `/admin`. No local command is needed.
+The production database must already have the required schema.
+
+Incorrect credentials never create an account. Later deployments never reset
+passwords, names, roles or verification for an existing account. If the email
+already belongs to a customer, it remains a customer; choose a new email for
+bootstrap or use an explicit administrative promotion. After initial setup,
+remove `ADMIN_PASSWORD` from Vercel and manually redeploy; the saved account
+continues to work. Changing the environment password does not rotate a saved
+admin password—use the normal password reset flow.
+
+For an explicit CLI create/reset operation without importing demo products:
 
 ```bash
 ADMIN_EMAIL=... ADMIN_PASSWORD=... ADMIN_NAME=... npm run db:bootstrap-admin

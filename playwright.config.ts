@@ -9,6 +9,7 @@ export default defineConfig({
   use: { baseURL: "http://127.0.0.1:3000", browserName: "chromium", trace: "off" },
   webServer: {
     command: "npm run start -- --hostname 127.0.0.1",
+    env: { ADMIN_EMAIL: "e2e-bootstrap-admin@example.invalid", ADMIN_PASSWORD: "e2e unique bootstrap admin password", ADMIN_NAME: "Browser Bootstrap Admin" },
     url: "http://127.0.0.1:3000/login",
     reuseExistingServer: false,
     timeout: 60000,

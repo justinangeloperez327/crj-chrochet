@@ -10,6 +10,7 @@ const db = new Pool({ connectionString: process.env.DATABASE_URL });
 
 test.beforeAll(async () => {
   expect(new URL(process.env.DATABASE_URL!).pathname).toBe("/crj_test");
+  await db.query('DELETE FROM "User" WHERE email=$1', ["e2e-bootstrap-admin@example.invalid"]);
   const userId = randomUUID();
   await db.query(`INSERT INTO "User" (id,email,"passwordHash",name,"emailVerifiedAt","updatedAt") VALUES ($1,$2,$3,$4,NOW(),NOW())
     ON CONFLICT(email) DO UPDATE SET "passwordHash"=EXCLUDED."passwordHash", "emailVerifiedAt"=NOW()`, [userId,email,await hashPassword(password),"Browser Test Customer"]);
@@ -21,6 +22,7 @@ test.afterAll(async () => {
   await db.query('DELETE FROM "Customer" WHERE email=$1', [email]);
   await db.query('DELETE FROM "User" WHERE email=$1', [email]);
   await db.query('DELETE FROM "BouquetStemOption" WHERE slug=$1', [stemSlug]);
+  await db.query('DELETE FROM "User" WHERE email=$1', ["e2e-bootstrap-admin@example.invalid"]);
   await db.end();
 });
 
@@ -96,4 +98,21 @@ test("password reset revokes browser session", async ({ page, request }) => {
   expect(response.status()).toBe(303);
   await page.goto("/account");
   await expect(page).toHaveURL(/\/login/);
+});
+
+test("Vercel environment admin is created on first correct login", async ({ page }) => {
+  const bootstrapEmail = "e2e-bootstrap-admin@example.invalid";
+  await page.goto("/login");
+  await page.getByLabel("Email address").fill(bootstrapEmail);
+  await page.getByLabel("Password", { exact: true }).fill("wrong bootstrap password");
+  await page.getByRole("button", { name: "Sign in", exact: true }).click();
+  await expect(page).toHaveURL(/\/login\?/);
+  expect((await db.query('SELECT COUNT(*)::int AS count FROM "User" WHERE email=$1', [bootstrapEmail])).rows[0].count).toBe(0);
+  await page.getByLabel("Email address").fill(bootstrapEmail);
+  await page.getByLabel("Password", { exact: true }).fill("e2e unique bootstrap admin password");
+  await page.getByRole("button", { name: "Sign in", exact: true }).click();
+  await expect(page).toHaveURL(/\/admin$/);
+  const saved = (await db.query('SELECT role,"emailVerifiedAt" FROM "User" WHERE email=$1', [bootstrapEmail])).rows[0];
+  expect(saved.role).toBe("ADMIN"); expect(saved.emailVerifiedAt).toBeTruthy();
+  await page.reload(); await expect(page).toHaveURL(/\/admin$/);
 });

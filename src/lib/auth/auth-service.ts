@@ -1,3 +1,4 @@
+import { bootstrapAdminOnLogin } from "@/lib/auth/admin-bootstrap";
 import { requireDb } from "@/lib/db";
 import { hashPassword, verifyPassword } from "@/lib/auth/password";
 import { createSession } from "@/lib/auth/session";
@@ -43,9 +44,9 @@ export async function loginWithPassword(emailInput: string, password: string) {
   const db = requireDb();
   const email = emailInput.trim().toLowerCase();
 
-  const user = await db.user.findUnique({ where: { email } });
-
   if (password.length > 200) throw new AuthError("Invalid email or password.", "INVALID_CREDENTIALS");
+  let user = await db.user.findUnique({ where: { email } });
+  if (!user) user = await bootstrapAdminOnLogin(email, password) ?? await db.user.findUnique({ where: { email } });
   if (!user) {
     await verifyPassword(password, "scrypt$16384$8$1$" + "0".repeat(32) + "$" + "0".repeat(128));
     throw new AuthError("Invalid email or password.", "INVALID_CREDENTIALS");
