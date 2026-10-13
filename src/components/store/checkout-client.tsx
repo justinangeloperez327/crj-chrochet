@@ -21,12 +21,14 @@ import { products } from "@/lib/catalog";
 type CheckoutStep = "information" | "delivery" | "payment";
 
 export function CheckoutClient({
+  providerName,
   cancelled = false,
   businessName,
   brandByline,
   currency,
   giftOrdersEnabled,
 }: {
+  providerName: string;
   cancelled?: boolean;
   businessName: string;
   brandByline: string;
@@ -481,12 +483,11 @@ export function CheckoutClient({
                   <LockKeyhole className="size-4" />
                 </div>
                 <p className="mt-4 text-sm font-semibold text-bloom-plum">
-                  Secure payment with Stripe Checkout.
+                  Secure payment with {providerName}.
                 </p>
                 <p className="mt-2 text-xs leading-5 text-bloom-muted">
                   We’ll validate pricing and stock, reserve your ready-stock items,
-                  then redirect you to Stripe’s hosted checkout. Your order is only
-                  marked paid after a verified Stripe webhook confirms payment.
+                  then open secure hosted checkout. Your order is confirmed after your payment is verified.
                 </p>
               </div>
 
@@ -665,7 +666,7 @@ export function CheckoutClient({
             </div>
 
             <p className="mt-4 text-[10px] leading-4 text-bloom-muted">
-              Final product, discount, delivery, and payment totals are recalculated on the server before Stripe Checkout starts.
+              Final product, discount, delivery, and payment totals are recalculated on the server before payment starts.
             </p>
           </div>
         </aside>

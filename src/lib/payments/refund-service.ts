@@ -1,4 +1,6 @@
-import type { Prisma } from "@/generated/prisma/client";
+import { parseRefund, ziinaRequest, ZiinaError, type ZiinaRefund } from "./ziina-client";
+import { randomUUID } from "node:crypto";
+import type { PaymentProvider, Prisma } from "@/generated/prisma/client";
 import type Stripe from "stripe";
 
 import { requireDb, runTransaction } from "@/lib/db";
@@ -32,7 +34,7 @@ export class RefundError extends Error {
   }
 }
 
-export async function createStripeRefund(input: CreateRefundInput) {
+export async function createPaymentRefund(input: CreateRefundInput) {
   const db = requireDb();
 
   const prepared = await runTransaction(async (tx) => {
@@ -150,7 +152,7 @@ export async function createStripeRefund(input: CreateRefundInput) {
 
     if (!attempt) {
       throw new RefundError(
-        "No successful Stripe payment attempt was found for this order.",
+        "No successful payment attempt was found for this order.",
         409,
       );
     }
@@ -160,7 +162,8 @@ export async function createStripeRefund(input: CreateRefundInput) {
         orderId: order.id,
         paymentAttemptId: attempt.id,
         initiatedByUserId: input.initiatedByUserId,
-        provider: "STRIPE",
+        id: randomUUID(),
+        provider: attempt.provider,
         amount,
         currency: order.currency,
         status: "PENDING",
@@ -177,6 +180,28 @@ export async function createStripeRefund(input: CreateRefundInput) {
       paymentAttempt: attempt,
     };
   }, { isolationLevel: "Serializable" });
+
+  if (prepared.paymentAttempt.provider === "ZIINA") {
+    await db.refund.update({ where: { id: prepared.refund.id }, data: { externalId: prepared.refund.id } });
+    try {
+      const refund = parseRefund(await ziinaRequest("/refund", {
+        id: prepared.refund.id, payment_intent_id: prepared.paymentAttempt.externalId,
+        amount: Math.round(Number(prepared.refund.amount) * 100), currency_code: prepared.refund.currency,
+        test: prepared.paymentAttempt.testMode,
+      }));
+      if (refund.id !== prepared.refund.id || refund.payment_intent_id !== prepared.paymentAttempt.externalId) throw new ZiinaError("Ziina refund identity mismatch.", 503, true);
+      await syncZiinaRefund(refund);
+      await processNotificationOutbox(5).catch(() => undefined);
+      return refund;
+    } catch (error) {
+      // Unknown POST outcomes stay pending for API reconciliation, not a new refund.
+      await db.refund.updateMany({ where: { id: prepared.refund.id, status: "PENDING" }, data: {
+        status: error instanceof ZiinaError && !error.ambiguous && error.status < 500 ? "FAILED" : "PENDING",
+        errorMessage: "Ziina refund requires reconciliation.",
+      } });
+      throw error;
+    }
+  }
 
   let paymentIntentId: string;
 
@@ -252,7 +277,18 @@ export async function createStripeRefund(input: CreateRefundInput) {
   return stripeRefund;
 }
 
-export async function syncStripeRefund(stripeRefund: Stripe.Refund) {
+type ProviderRefund = { id: string; amount: number; currency: string; status: string | null; metadata?: { refundId?: string; orderId?: string } | null; failure_reason?: string | null };
+export function syncStripeRefund(refund: Stripe.Refund) { return syncProviderRefund(refund, "STRIPE"); }
+export async function syncZiinaRefund(refund: ZiinaRefund) {
+  const local = await requireDb().refund.findUnique({ where: { externalId: refund.id }, include: { paymentAttempt: true } });
+  if (!local || local.provider !== "ZIINA") return null;
+  if (!local.paymentAttempt || local.paymentAttempt.externalId !== refund.payment_intent_id) throw new RefundError("Ziina refund payment identity mismatch.", 409);
+  return syncProviderRefund({ id: refund.id, amount: refund.amount, currency: refund.currency_code.toLowerCase(),
+    status: refund.status === "completed" ? "succeeded" : refund.status,
+    metadata: { refundId: local.id },
+  }, "ZIINA");
+}
+async function syncProviderRefund(stripeRefund: ProviderRefund, provider: PaymentProvider) {
   return runTransaction(async (tx) => {
     const refundId = stripeRefund.metadata?.refundId;
 
@@ -266,7 +302,7 @@ export async function syncStripeRefund(stripeRefund: Stripe.Refund) {
           orderBy: { createdAt: "desc" },
         });
 
-    if (!local) return null;
+    if (!local || local.provider !== provider) return null;
 
     if (local.externalId && local.externalId !== stripeRefund.id) throw new RefundError("Refund provider identity mismatch.", 409);
     if (Math.round(Number(local.amount) * 100) !== stripeRefund.amount || local.currency.toLowerCase() !== stripeRefund.currency) throw new RefundError("Refund amount or currency mismatch.", 409);
@@ -291,7 +327,7 @@ export async function syncStripeRefund(stripeRefund: Stripe.Refund) {
         status: mappedStatus,
         errorMessage:
           mappedStatus === "FAILED"
-            ? stripeRefund.failure_reason || "Stripe refund failed."
+            ? stripeRefund.failure_reason || "Payment provider refund failed."
             : null,
         completedAt:
           mappedStatus === "SUCCEEDED" ? new Date() : local.completedAt,

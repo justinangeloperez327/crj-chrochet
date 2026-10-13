@@ -1,3 +1,4 @@
+import { reconcileZiinaPayments } from "@/lib/payments/ziina-maintenance";
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 
@@ -14,9 +15,10 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
   }
 
-  const [reservations, notifications] = await Promise.all([
+  const [reservations, notifications, ziina] = await Promise.all([
     releaseExpiredReservations(),
     processNotificationOutbox(),
+    reconcileZiinaPayments(),
   ]);
 
   const db = getDb();
@@ -28,6 +30,7 @@ export async function GET(request: Request) {
   return NextResponse.json({
     ok: true,
     reservations,
+    ziina,
     notifications,
   });
 }

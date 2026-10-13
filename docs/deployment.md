@@ -167,3 +167,5 @@ Keep database changes compatible with the prior application; restore data only
 through an independently reviewed recovery procedure.
 
 Install scripts are approved in package.json only for the locked Prisma engines, Prisma CLI, esbuild and unrs-resolver versions. After dependency updates, review `npm install-scripts ls` and approve specific reviewed packages; do not allow every script globally. Node is restricted to 24.x.
+
+For Ziina hosted checkout, follow [Ziina setup](ziina.md). Set PAYMENT_PROVIDER=ziina after configuring its merchant credentials and webhook; existing Stripe orders retain Stripe reconciliation and refund support.

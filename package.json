@@ -19,7 +19,7 @@
     "db:seed": "prisma db seed",
     "db:studio": "prisma studio",
     "db:bootstrap-admin": "tsx prisma/bootstrap-admin.ts",
-    "test": "node --import tsx --test tests/auth-security.test.ts tests/commerce.test.ts",
+    "test": "node --import tsx --test tests/auth-security.test.ts tests/commerce.test.ts tests/ziina.test.ts",
     "smoke": "node scripts/smoke.mjs",
     "test:integration": "node --import tsx --test tests/*.integration.test.ts",
     "test:e2e": "playwright test"

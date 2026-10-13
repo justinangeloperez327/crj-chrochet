@@ -18,6 +18,7 @@ type PaymentQuote = {
   paid: boolean;
   existingCheckoutUrl: string | null;
   cancelled: boolean;
+  providerName: string;
 };
 
 export function CustomBouquetPayment({
@@ -128,8 +129,7 @@ export function CustomBouquetPayment({
 
         {quote.cancelled ? (
           <p className="mt-5 border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-800">
-            The previous payment was cancelled. Its material reservation was
-            released; you can start a fresh secure payment below.
+            The payment was interrupted. The store will verify its status before releasing the reservation.
           </p>
         ) : null}
 
@@ -249,7 +249,7 @@ export function CustomBouquetPayment({
               disabled={loading}
               className="mt-5 inline-flex h-12 items-center gap-2 bg-bloom-violet px-6 text-sm font-semibold text-white disabled:opacity-60"
             >
-              {loading ? "Preparing secure payment…" : "Continue to Stripe"}
+              {loading ? "Preparing secure payment…" : `Continue to ${quote.providerName}`}
               <ArrowRight className="size-4" />
             </button>
           )}
@@ -281,7 +281,7 @@ export function CustomBouquetPayment({
         </div>
 
         <p className="mt-5 text-[10px] leading-4 text-bloom-muted">
-          Payment is handled by Stripe. The bouquet enters production only
+          Payment is handled by {quote.providerName}. The bouquet enters production only
           after payment is verified.
         </p>
       </aside>

@@ -1,3 +1,4 @@
+import { paymentProviderName } from "@/lib/payments/provider";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
@@ -70,7 +71,7 @@ export default async function CustomBouquetPaymentPage({
             </h1>
             <p className="mt-4 max-w-2xl text-sm leading-6 text-bloom-muted">
               Confirm delivery details, review the approved quote, and continue
-              to secure Stripe Checkout.
+              to secure hosted checkout.
             </p>
           </div>
         </section>
@@ -78,6 +79,7 @@ export default async function CustomBouquetPaymentPage({
         <section className="mx-auto max-w-[1180px] px-5 py-10 sm:px-8 lg:py-14">
           <CustomBouquetPayment
             quote={{
+              providerName: attempt ? (attempt.provider === "ZIINA" ? "Ziina" : "Stripe") : paymentProviderName(),
               token,
               referenceNumber: request.referenceNumber,
               customerName: request.customerName,

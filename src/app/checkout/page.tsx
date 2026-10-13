@@ -1,3 +1,4 @@
+import { paymentProviderName } from "@/lib/payments/provider";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
@@ -27,6 +28,7 @@ export default async function CheckoutPage({
 
   return (
     <CheckoutClient
+      providerName={paymentProviderName()}
       cancelled={params.cancelled === "1"}
       businessName={settings.businessName}
       brandByline={settings.brandByline}

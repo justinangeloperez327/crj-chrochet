@@ -91,6 +91,7 @@ enum AuthTokenType {
 
 enum PaymentProvider {
   STRIPE
+  ZIINA
 }
 
 enum PaymentAttemptStatus {
@@ -547,6 +548,7 @@ model Order {
 }
 
 model PaymentAttempt {
+  testMode    Boolean              @default(false)
   id          String               @id @default(cuid())
   orderId     String
   provider    PaymentProvider

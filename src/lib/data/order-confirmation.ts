@@ -1,6 +1,6 @@
 import { getDb } from "@/lib/db";
 
-export async function getOrderConfirmationByStripeSession(
+export async function getOrderConfirmationByPaymentReference(
   sessionId: string,
 ) {
   const db = getDb();

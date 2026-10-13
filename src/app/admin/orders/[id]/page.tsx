@@ -381,7 +381,7 @@ export default async function AdminOrderPage({ params }: OrderPageProps) {
             <section className="border border-red-200 bg-white p-5">
               <h2 className="text-sm font-semibold text-red-700">Refund</h2>
               <p className="mt-2 text-[11px] leading-5 text-bloom-muted">
-                Remaining refundable: AED {money(remainingRefundable)}. Stripe is authoritative; asynchronous refunds finalize by webhook.
+                Remaining refundable: AED {money(remainingRefundable)}. The original payment provider verifies refund completion.
               </p>
               <form action={refundOrder} className="mt-5 space-y-3">
                 <input type="hidden" name="orderId" value={order.id} />
@@ -404,7 +404,7 @@ export default async function AdminOrderPage({ params }: OrderPageProps) {
                     I understand consumed materials are not restored automatically.
                   </label>
                 ) : null}
-                <button type="submit" className="h-10 w-full bg-red-700 px-4 text-xs font-semibold text-white">Issue Stripe refund</button>
+                <button type="submit" className="h-10 w-full bg-red-700 px-4 text-xs font-semibold text-white">Issue refund</button>
               </form>
             </section>
           ) : null}

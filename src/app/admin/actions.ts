@@ -20,7 +20,7 @@ import {
 } from "@/lib/materials/material-service";
 import { processNotificationOutbox } from "@/lib/notifications/notification-service";
 import { updateDeliveryFulfillment } from "@/lib/orders/fulfillment-service";
-import { createStripeRefund } from "@/lib/payments/refund-service";
+import { createPaymentRefund } from "@/lib/payments/refund-service";
 import {
   isAllowedProductionTransition,
   syncEligibleProductionJobs,
@@ -345,7 +345,7 @@ export async function updateOrderWorkflow(formData: FormData) {
         paymentStatus !== order.paymentStatus)
     ) {
       throw new Error(
-        "Refund payment states are managed by the Stripe refund workflow.",
+        "Refund payment states are managed by the payment provider refund workflow.",
       );
     }
 
@@ -1432,7 +1432,7 @@ export async function refundOrder(formData: FormData) {
   const reason = required(formData, "reason");
   const note = optional(formData, "note");
 
-  await createStripeRefund({
+  await createPaymentRefund({
     orderId,
     amount,
     reason,
