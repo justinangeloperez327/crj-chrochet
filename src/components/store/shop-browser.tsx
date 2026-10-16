@@ -23,12 +23,17 @@ export function ShopBrowser({
   useEffect(() => {
     const dialog = filtersDialog.current;
     if (!mobileFiltersOpen || !dialog) return;
+    const previousFocus =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
     const previous = document.body.style.overflow;
     dialog.showModal();
     document.body.style.overflow = "hidden";
     return () => {
       dialog.close();
       document.body.style.overflow = previous;
+      previousFocus?.focus();
     };
   }, [mobileFiltersOpen]);
 
@@ -194,7 +199,10 @@ export function ShopBrowser({
         <dialog
           ref={filtersDialog}
           aria-labelledby="filter-title"
-          onCancel={() => setMobileFiltersOpen(false)}
+          onCancel={(event) => {
+            event.preventDefault();
+            setMobileFiltersOpen(false);
+          }}
           className="fixed inset-0 m-auto max-h-[85dvh] w-[calc(100%-2rem)] max-w-lg overflow-y-auto border border-bloom-border bg-background p-0 text-bloom-plum backdrop:bg-bloom-plum/40"
         >
           <div className="px-5 pb-8 pt-5">

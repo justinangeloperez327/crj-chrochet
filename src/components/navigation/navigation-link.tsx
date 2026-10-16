@@ -22,7 +22,10 @@ export function NavigationLink({
     <Link
       href={href}
       aria-current={active ? "page" : undefined}
-      className={cn(className, active && "navigation-current")}
+      className={cn(
+        className,
+        "aria-[current=page]:bg-bloom-violet-soft aria-[current=page]:text-bloom-violet aria-[current=page]:shadow-[inset_3px_0_var(--bloom-violet)]",
+      )}
       {...props}
     >
       {children}

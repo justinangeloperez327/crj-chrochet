@@ -237,24 +237,8 @@
     border: 1px dashed var(--bloom-border);
     background: white;
   }
-  .navigation-current {
-    color: var(--bloom-violet);
-    background: var(--bloom-violet-soft);
-    box-shadow: inset 3px 0 var(--bloom-violet);
-  }
-  .admin-workspace :where(h1) {
-    font-family: var(--font-geist-sans), sans-serif;
-    font-size: clamp(1.5rem, 3vw, 2rem);
-    font-weight: 600;
-    letter-spacing: -0.035em;
-  }
   .admin-workspace :where(table) {
     font-variant-numeric: tabular-nums;
-  }
-  .admin-workspace :where(th) {
-    background: var(--bloom-violet-soft);
-    color: var(--bloom-plum);
-    font-size: 0.75rem;
   }
   .admin-workspace :where(td, th) {
     vertical-align: middle;
@@ -282,4 +266,16 @@
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+}
+
+.admin-workspace h1 {
+  font-family: var(--font-geist-sans), sans-serif;
+  font-size: clamp(1.5rem, 3vw, 2rem);
+  font-weight: 600;
+  letter-spacing: -0.035em;
+}
+.admin-workspace th {
+  background: var(--bloom-violet-soft);
+  color: var(--bloom-plum);
+  font-size: 0.75rem;
 }

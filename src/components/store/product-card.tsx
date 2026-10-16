@@ -113,11 +113,9 @@ export function ProductCard({ product }: { product: Product }) {
       </div>
 
       <div className="pt-4">
-        {product.badge ? (
-          <p className="mb-2 text-xs font-medium text-bloom-violet">
-            {product.badge}
-          </p>
-        ) : null}
+        <div className="mb-2 min-h-4 text-xs font-medium text-bloom-violet">
+          {product.badge ?? null}
+        </div>
         <span role="status" className="sr-only">
           {added ? `${product.name} added to your bag` : ""}
         </span>

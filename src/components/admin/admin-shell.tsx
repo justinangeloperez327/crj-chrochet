@@ -107,7 +107,7 @@ export async function AdminShell({ children }: { children: React.ReactNode }) {
               </Link>
               <Link
                 href="/"
-                className="flex size-9 items-center justify-center border border-bloom-border"
+                className="flex size-11 items-center justify-center border border-bloom-border"
                 aria-label="View storefront"
               >
                 <ShoppingBag className="size-4" />
