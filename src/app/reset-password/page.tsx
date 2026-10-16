@@ -4,7 +4,7 @@ export default async function ResetPassword({
   searchParams,
 }: { searchParams: Promise<{ token?: string }> }) {
   const { token } = await searchParams;
-  return <main className="mx-auto flex min-h-screen max-w-lg flex-col justify-center px-6 py-12">
+  return <main id="main-content" className="mx-auto flex min-h-screen max-w-lg flex-col justify-center px-6 py-12">
     <Link href="/" className="text-sm font-semibold text-bloom-violet">Handmade Blooms by CRJ</Link>
     <h1 className="mt-8 font-display text-4xl text-bloom-plum">Choose a new password</h1>
     {token ? <form action="/api/auth/reset" method="post" className="mt-7 space-y-4">

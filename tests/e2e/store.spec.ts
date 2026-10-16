@@ -10,24 +10,46 @@ const db = new Pool({ connectionString: process.env.DATABASE_URL });
 
 test.beforeAll(async () => {
   expect(new URL(process.env.DATABASE_URL!).pathname).toBe("/crj_test");
-  await db.query('DELETE FROM "User" WHERE email=$1', ["e2e-bootstrap-admin@example.invalid"]);
+  await db.query('DELETE FROM "User" WHERE email=$1', [
+    "e2e-bootstrap-admin@example.invalid",
+  ]);
   const userId = randomUUID();
-  await db.query(`INSERT INTO "User" (id,email,"passwordHash",name,"emailVerifiedAt","updatedAt") VALUES ($1,$2,$3,$4,NOW(),NOW())
-    ON CONFLICT(email) DO UPDATE SET "passwordHash"=EXCLUDED."passwordHash", "emailVerifiedAt"=NOW()`, [userId,email,await hashPassword(password),"Browser Test Customer"]);
-  const user = (await db.query<{ id: string }>('SELECT id FROM "User" WHERE email=$1', [email])).rows[0];
-  await db.query(`INSERT INTO "Customer" (id,"userId",email,"firstName","lastName","updatedAt") VALUES ($1,$2,$3,$4,$5,NOW())
-    ON CONFLICT(email) DO NOTHING`, [randomUUID(),user.id,email,"Browser","Customer"]);
+  await db.query(
+    `INSERT INTO "User" (id,email,"passwordHash",name,"emailVerifiedAt","updatedAt") VALUES ($1,$2,$3,$4,NOW(),NOW())
+    ON CONFLICT(email) DO UPDATE SET "passwordHash"=EXCLUDED."passwordHash", "emailVerifiedAt"=NOW()`,
+    [userId, email, await hashPassword(password), "Browser Test Customer"],
+  );
+  const user = (
+    await db.query<{ id: string }>('SELECT id FROM "User" WHERE email=$1', [
+      email,
+    ])
+  ).rows[0];
+  await db.query(
+    `INSERT INTO "Customer" (id,"userId",email,"firstName","lastName","updatedAt") VALUES ($1,$2,$3,$4,$5,NOW())
+    ON CONFLICT(email) DO NOTHING`,
+    [randomUUID(), user.id, email, "Browser", "Customer"],
+  );
 });
 test.afterAll(async () => {
   await db.query('DELETE FROM "Customer" WHERE email=$1', [email]);
   await db.query('DELETE FROM "User" WHERE email=$1', [email]);
   await db.query('DELETE FROM "BouquetStemOption" WHERE slug=$1', [stemSlug]);
-  await db.query('DELETE FROM "User" WHERE email=$1', ["e2e-bootstrap-admin@example.invalid"]);
+  await db.query('DELETE FROM "User" WHERE email=$1', [
+    "e2e-bootstrap-admin@example.invalid",
+  ]);
   await db.end();
 });
 
-test("storefront routes render and catalogue cart persists", async ({ page }) => {
-  for (const route of ["/", "/shop", "/collections", "/register", "/forgot-password"]) {
+test("storefront routes render and catalogue cart persists", async ({
+  page,
+}) => {
+  for (const route of [
+    "/",
+    "/shop",
+    "/collections",
+    "/register",
+    "/forgot-password",
+  ]) {
     const response = await page.goto(route);
     expect(response?.status()).toBe(200);
     await expect(page.locator("main")).toBeVisible();
@@ -40,13 +62,24 @@ test("storefront routes render and catalogue cart persists", async ({ page }) =>
   await expect(page.getByText("Pink Tulip Bouquet").first()).toBeVisible();
 });
 
-test("anonymous admin access redirects and cross-origin logout fails", async ({ page, request }) => {
+test("anonymous admin access redirects and cross-origin logout fails", async ({
+  page,
+  request,
+}) => {
   await page.goto("/admin");
   await expect(page).toHaveURL(/\/login/);
-  expect((await request.post("/api/auth/logout", { headers: { origin: "https://other.example" } })).status()).toBe(403);
+  expect(
+    (
+      await request.post("/api/auth/logout", {
+        headers: { origin: "https://other.example" },
+      })
+    ).status(),
+  ).toBe(403);
 });
 
-test("customer login, account, admin isolation, and logout", async ({ page }) => {
+test("customer login, account, admin isolation, and logout", async ({
+  page,
+}) => {
   await page.goto("/login");
   await page.getByLabel("Email address").fill(email);
   await page.getByLabel("Password", { exact: true }).fill(password);
@@ -64,10 +97,20 @@ test("customer login, account, admin isolation, and logout", async ({ page }) =>
 test("admin signs in and operational pages render", async ({ page }) => {
   await page.goto("/login");
   await page.getByLabel("Email address").fill(process.env.ADMIN_EMAIL!);
-  await page.getByLabel("Password", { exact: true }).fill(process.env.ADMIN_PASSWORD!);
+  await page
+    .getByLabel("Password", { exact: true })
+    .fill(process.env.ADMIN_PASSWORD!);
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
   await expect(page).toHaveURL(/\/admin$/);
-  for (const route of ["products", "inventory", "orders", "materials", "settings", "production", "bouquet-options"]) {
+  for (const route of [
+    "products",
+    "inventory",
+    "orders",
+    "materials",
+    "settings",
+    "production",
+    "bouquet-options",
+  ]) {
     expect((await page.goto("/admin/" + route))?.status()).toBe(200);
     await expect(page.locator("main")).toBeVisible();
   }
@@ -78,11 +121,33 @@ test("admin signs in and operational pages render", async ({ page }) => {
   await create.getByLabel("Colour name", { exact: true }).fill("Pink");
   await create.getByLabel("Price (AED)", { exact: true }).fill("9.99");
   await create.getByRole("button", { name: "Create option" }).click();
-  await expect.poll(async () => (await db.query('SELECT COUNT(*)::int AS count FROM "BouquetStemOption" WHERE slug=$1', [stemSlug])).rows[0].count).toBe(1);
-  const edit = page.getByTestId("edit-stem").filter({ has: page.locator(`input[name="slug"][value="${stemSlug}"]`) });
+  await expect
+    .poll(
+      async () =>
+        (
+          await db.query(
+            'SELECT COUNT(*)::int AS count FROM "BouquetStemOption" WHERE slug=$1',
+            [stemSlug],
+          )
+        ).rows[0].count,
+    )
+    .toBe(1);
+  const edit = page
+    .getByTestId("edit-stem")
+    .filter({ has: page.locator(`input[name="slug"][value="${stemSlug}"]`) });
   await edit.getByLabel("Active", { exact: true }).uncheck();
   await edit.getByRole("button", { name: "Save option" }).click();
-  await expect.poll(async () => (await db.query('SELECT "isActive" FROM "BouquetStemOption" WHERE slug=$1', [stemSlug])).rows[0].isActive).toBe(false);
+  await expect
+    .poll(
+      async () =>
+        (
+          await db.query(
+            'SELECT "isActive" FROM "BouquetStemOption" WHERE slug=$1',
+            [stemSlug],
+          )
+        ).rows[0].isActive,
+    )
+    .toBe(false);
 });
 
 test("password reset revokes browser session", async ({ page, request }) => {
@@ -91,28 +156,137 @@ test("password reset revokes browser session", async ({ page, request }) => {
   await page.getByLabel("Password", { exact: true }).fill(password);
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
   await expect(page).toHaveURL(/\/account$/);
-  const user = (await db.query<{ id: string }>('SELECT id FROM "User" WHERE email=$1', [email])).rows[0];
+  const user = (
+    await db.query<{ id: string }>('SELECT id FROM "User" WHERE email=$1', [
+      email,
+    ])
+  ).rows[0];
   const token = randomBytes(32).toString("base64url");
-  await db.query('INSERT INTO "AuthToken" (id,"userId","tokenHash",type,"expiresAt") VALUES ($1,$2,$3,$4,$5)', [randomUUID(),user.id,createHash("sha256").update(token).digest("hex"),"PASSWORD_RESET",new Date(Date.now() + 600000)]);
-  const response = await request.post("/api/auth/reset", { headers: { origin: "http://127.0.0.1:3000" }, form: { token, password: "new secure e2e test password" }, maxRedirects: 0 });
+  await db.query(
+    'INSERT INTO "AuthToken" (id,"userId","tokenHash",type,"expiresAt") VALUES ($1,$2,$3,$4,$5)',
+    [
+      randomUUID(),
+      user.id,
+      createHash("sha256").update(token).digest("hex"),
+      "PASSWORD_RESET",
+      new Date(Date.now() + 600000),
+    ],
+  );
+  const response = await request.post("/api/auth/reset", {
+    headers: { origin: "http://127.0.0.1:3000" },
+    form: { token, password: "new secure e2e test password" },
+    maxRedirects: 0,
+  });
   expect(response.status()).toBe(303);
   await page.goto("/account");
   await expect(page).toHaveURL(/\/login/);
 });
 
-test("Vercel environment admin is created on first correct login", async ({ page }) => {
+test("Vercel environment admin is created on first correct login", async ({
+  page,
+}) => {
   const bootstrapEmail = "e2e-bootstrap-admin@example.invalid";
   await page.goto("/login");
   await page.getByLabel("Email address").fill(bootstrapEmail);
-  await page.getByLabel("Password", { exact: true }).fill("wrong bootstrap password");
+  await page
+    .getByLabel("Password", { exact: true })
+    .fill("wrong bootstrap password");
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
   await expect(page).toHaveURL(/\/login\?/);
-  expect((await db.query('SELECT COUNT(*)::int AS count FROM "User" WHERE email=$1', [bootstrapEmail])).rows[0].count).toBe(0);
+  expect(
+    (
+      await db.query(
+        'SELECT COUNT(*)::int AS count FROM "User" WHERE email=$1',
+        [bootstrapEmail],
+      )
+    ).rows[0].count,
+  ).toBe(0);
   await page.getByLabel("Email address").fill(bootstrapEmail);
-  await page.getByLabel("Password", { exact: true }).fill("e2e unique bootstrap admin password");
+  await page
+    .getByLabel("Password", { exact: true })
+    .fill("e2e unique bootstrap admin password");
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
   await expect(page).toHaveURL(/\/admin$/);
-  const saved = (await db.query('SELECT role,"emailVerifiedAt" FROM "User" WHERE email=$1', [bootstrapEmail])).rows[0];
-  expect(saved.role).toBe("ADMIN"); expect(saved.emailVerifiedAt).toBeTruthy();
-  await page.reload(); await expect(page).toHaveURL(/\/admin$/);
+  const saved = (
+    await db.query('SELECT role,"emailVerifiedAt" FROM "User" WHERE email=$1', [
+      bootstrapEmail,
+    ])
+  ).rows[0];
+  expect(saved.role).toBe("ADMIN");
+  expect(saved.emailVerifiedAt).toBeTruthy();
+  await page.reload();
+  await expect(page).toHaveURL(/\/admin$/);
+});
+
+test("mobile menu, filters, and product quick add work without hover", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 375, height: 812 });
+  await page.goto("/");
+  const menu = page.getByRole("button", { name: "Open menu", exact: true });
+  await menu.click();
+  await expect(
+    page.getByRole("navigation", { name: "Mobile navigation" }),
+  ).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(menu).toBeFocused();
+  await menu.click();
+  await page
+    .getByRole("navigation", { name: "Mobile navigation" })
+    .getByRole("link", { name: "Shop", exact: true })
+    .click();
+  await expect(page).toHaveURL(/\/shop$/);
+  await expect(
+    page.getByRole("navigation", { name: "Mobile navigation" }),
+  ).toHaveCount(0);
+  const filters = page.getByRole("button", { name: "Filters", exact: true });
+  await filters.click();
+  const dialog = page.getByRole("dialog", { name: "Filters", exact: true });
+  await expect(dialog).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(dialog).toHaveCount(0);
+  await expect(filters).toBeFocused();
+  const add = page.getByRole("button", { name: /^Quick add / }).first();
+  await expect(add).toBeVisible();
+  await add.click();
+  await expect(add).toContainText("Added");
+  await expect(
+    page.getByRole("button", { name: "Shopping bag with 1 items" }),
+  ).toBeVisible();
+});
+
+test("store pages fit mobile, tablet, and desktop widths", async ({ page }) => {
+  test.setTimeout(90000);
+  for (const width of [320, 375, 768, 1024, 1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    for (const route of ["/", "/shop", "/login", "/cart"]) {
+      await page.goto(route);
+      const overflows = await page.evaluate(
+        () => document.documentElement.scrollWidth > window.innerWidth + 1,
+      );
+      expect(overflows, `${route} overflows at ${width}px`).toBe(false);
+      await expect(page.locator("main")).toBeVisible();
+    }
+  }
+});
+
+test("shopping bag keeps keyboard focus inside and returns it on close", async ({
+  page,
+}) => {
+  await page.goto("/shop");
+  const trigger = page.getByRole("button", {
+    name: "Shopping bag with 0 items",
+  });
+  await trigger.click();
+  const bag = page.getByRole("dialog", { name: "Your basket", exact: true });
+  await expect(bag).toBeVisible();
+  const close = bag.getByRole("button", { name: "Close shopping bag" });
+  await expect(close).toBeFocused();
+  await page.keyboard.press("Shift+Tab");
+  await expect(bag.getByRole("link", { name: "Shop blooms" })).toBeFocused();
+  await page.keyboard.press("Tab");
+  await expect(close).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(bag).toHaveCount(0);
+  await expect(trigger).toBeFocused();
 });

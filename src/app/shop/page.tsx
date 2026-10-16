@@ -32,14 +32,14 @@ export default async function ShopPage() {
     <div className="min-h-screen bg-background">
       <SiteHeader />
 
-      <main>
-        <section className="border-b border-bloom-border bg-[#fff2f8]">
-          <div className="mx-auto max-w-[1440px] px-5 py-14 sm:px-8 lg:px-12 lg:py-18">
-            <p className="text-[11px] font-semibold tracking-[0.18em] text-bloom-pink uppercase">
+      <main id="main-content">
+        <section className="border-b border-bloom-border bg-bloom-violet-soft">
+          <div className="mx-auto max-w-[1440px] px-5 py-10 sm:px-8 lg:px-12 lg:py-12">
+            <p className="text-sm font-medium text-bloom-violet">
               The flower shop
             </p>
             <div className="mt-3 grid gap-5 lg:grid-cols-[1fr_0.55fr] lg:items-end">
-              <h1 className="font-display text-5xl font-semibold tracking-[-0.045em] text-bloom-plum sm:text-6xl">
+              <h1 className="font-display text-4xl font-medium tracking-[-0.035em] text-bloom-plum sm:text-5xl">
                 Find a bloom to keep.
               </h1>
               <p className="max-w-lg text-sm leading-6 text-bloom-muted lg:justify-self-end">
@@ -54,14 +54,14 @@ export default async function ShopPage() {
 
             {featuredCollections.length > 0 ? (
               <div className="mt-8 flex flex-wrap gap-2 border-t border-bloom-border/70 pt-5">
-                <span className="mr-2 self-center text-[10px] font-semibold uppercase tracking-[0.1em] text-bloom-muted">
+                <span className="mr-2 self-center text-xs font-medium uppercase tracking-[0.1em] text-bloom-muted">
                   Collections
                 </span>
                 {featuredCollections.map((collection) => (
                   <Link
                     key={collection.id}
                     href={`/collections/${collection.slug}`}
-                    className="border border-bloom-border bg-white px-3 py-2 text-[10px] font-semibold text-bloom-plum transition-colors hover:border-bloom-violet hover:text-bloom-violet"
+                    className="border border-bloom-border bg-white px-3 py-2 text-xs font-medium text-bloom-plum transition-colors hover:border-bloom-violet hover:text-bloom-violet"
                   >
                     {collection.name}
                   </Link>

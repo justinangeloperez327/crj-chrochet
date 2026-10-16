@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { ArrowRight, ShoppingBag, X } from "lucide-react";
 
 import { CartLineItem } from "@/components/store/cart-line-item";
@@ -18,6 +18,7 @@ export function CartDrawer({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
+  const drawer = useRef<HTMLElement>(null);
   const cart = useCart();
   const subtotal = useCartSubtotal();
 
@@ -33,11 +34,31 @@ export function CartDrawer({
   useEffect(() => {
     if (!open) return;
 
+    const previousFocus =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
     const previous = document.body.style.overflow;
     document.body.style.overflow = "hidden";
 
+    drawer.current?.querySelector<HTMLButtonElement>("button")?.focus();
     function handleEscape(event: KeyboardEvent) {
       if (event.key === "Escape") onOpenChange(false);
+      if (event.key !== "Tab") return;
+      const controls = Array.from(
+        drawer.current?.querySelectorAll<HTMLElement>(
+          "a[href], button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled)",
+        ) ?? [],
+      );
+      const first = controls[0];
+      const last = controls[controls.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last?.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first?.focus();
+      }
     }
 
     window.addEventListener("keydown", handleEscape);
@@ -45,6 +66,7 @@ export function CartDrawer({
     return () => {
       document.body.style.overflow = previous;
       window.removeEventListener("keydown", handleEscape);
+      previousFocus?.focus();
     };
   }, [onOpenChange, open]);
 
@@ -59,13 +81,22 @@ export function CartDrawer({
         className="absolute inset-0 bg-bloom-plum/35 backdrop-blur-[2px]"
       />
 
-      <aside className="absolute inset-y-0 right-0 flex w-full max-w-md flex-col bg-background shadow-2xl">
+      <aside
+        ref={drawer}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="basket-title"
+        className="absolute inset-y-0 right-0 flex w-full max-w-md flex-col bg-background shadow-2xl"
+      >
         <div className="flex h-18 items-center justify-between border-b border-bloom-border px-5 sm:px-6">
           <div>
-            <p className="font-display text-2xl font-semibold text-bloom-plum">
+            <p
+              id="basket-title"
+              className="font-display text-2xl font-medium text-bloom-plum"
+            >
               Your basket
             </p>
-            <p className="mt-0.5 text-[11px] text-bloom-muted">
+            <p className="mt-0.5 text-xs text-bloom-muted">
               {cart.length === 0
                 ? "Waiting for your first bloom"
                 : `${cart.length} ${cart.length === 1 ? "selection" : "selections"}`}
@@ -74,7 +105,7 @@ export function CartDrawer({
           <button
             type="button"
             onClick={() => onOpenChange(false)}
-            className="flex size-9 items-center justify-center border border-bloom-border bg-white text-bloom-plum"
+            className="flex size-11 items-center justify-center border border-bloom-border bg-white text-bloom-plum"
             aria-label="Close shopping bag"
           >
             <X className="size-4" />
@@ -101,7 +132,7 @@ export function CartDrawer({
                   AED {subtotal}
                 </span>
               </div>
-              <p className="mt-2 text-[11px] leading-5 text-bloom-muted">
+              <p className="mt-2 text-xs leading-5 text-bloom-muted">
                 Delivery charges are confirmed during checkout.
               </p>
               <Link

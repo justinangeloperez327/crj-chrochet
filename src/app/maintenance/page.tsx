@@ -17,7 +17,7 @@ export default async function MaintenancePage() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-[#fff7fb] px-5 py-16">
+    <main id="main-content" className="flex min-h-screen items-center justify-center bg-[#fff7fb] px-5 py-16">
       <div className="w-full max-w-2xl border border-bloom-border bg-white p-8 text-center sm:p-12">
         <div className="mx-auto flex size-12 items-center justify-center bg-bloom-pink-soft text-bloom-pink">
           <Flower2 className="size-5" />

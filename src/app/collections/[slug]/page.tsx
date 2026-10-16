@@ -42,7 +42,7 @@ export default async function CollectionPage({ params }: Props) {
     <div className="min-h-screen bg-background">
       <SiteHeader />
 
-      <main>
+      <main id="main-content">
         <section className="border-b border-bloom-border bg-[#fff7fb]">
           <div className="mx-auto grid max-w-[1440px] gap-8 px-5 py-10 sm:px-8 lg:grid-cols-[1fr_0.72fr] lg:items-center lg:px-12 lg:py-14">
             <div>

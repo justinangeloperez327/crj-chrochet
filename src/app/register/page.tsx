@@ -18,22 +18,22 @@ export default async function RegisterPage({
   const params = await searchParams;
 
   return (
-    <main className="grid min-h-screen bg-background lg:grid-cols-[0.9fr_1.1fr]">
+    <main id="main-content" className="grid min-h-screen bg-background lg:grid-cols-[0.9fr_1.1fr]">
       <section className="flex items-center justify-center px-5 py-12 sm:px-8">
         <div className="w-full max-w-md">
           <Link href="/" className="inline-flex items-baseline gap-2">
             <span className="font-display text-2xl font-semibold text-bloom-plum">
               Handmade Blooms
             </span>
-            <span className="text-[9px] font-semibold tracking-[0.18em] text-bloom-pink uppercase">
+            <span className="text-xs text-bloom-pink uppercase">
               by CRJ
             </span>
           </Link>
 
-          <p className="mt-12 text-[10px] font-semibold tracking-[0.16em] text-bloom-pink uppercase">
+          <p className="mt-12 text-sm font-medium text-bloom-pink uppercase">
             Your account
           </p>
-          <h1 className="mt-2 font-display text-4xl font-semibold tracking-[-0.04em] text-bloom-plum">
+          <h1 className="mt-2 font-display text-4xl font-medium tracking-[-0.04em] text-bloom-plum">
             Save the blooms you love.
           </h1>
           <p className="mt-3 text-sm leading-6 text-bloom-muted">
@@ -97,7 +97,7 @@ export default async function RegisterPage({
 
       <section className="hidden bg-[#fff0f6] lg:flex lg:items-end lg:p-12">
         <div className="max-w-lg">
-          <p className="font-display text-5xl font-semibold leading-tight tracking-[-0.045em] text-bloom-plum">
+          <p className="font-display text-5xl font-medium leading-tight tracking-[-0.045em] text-bloom-plum">
             Handmade gifts.
             <span className="block text-bloom-violet">Remembered longer.</span>
           </p>
