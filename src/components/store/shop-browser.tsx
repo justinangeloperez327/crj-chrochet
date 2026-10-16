@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ChevronDown, SlidersHorizontal, X } from "lucide-react";
 
 import { ProductCard } from "@/components/store/product-card";
@@ -19,6 +19,18 @@ export function ShopBrowser({
   const [availability, setAvailability] = useState<Availability | "All">("All");
   const [sort, setSort] = useState<SortOption>("featured");
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+  const filtersDialog = useRef<HTMLDialogElement>(null);
+  useEffect(() => {
+    const dialog = filtersDialog.current;
+    if (!mobileFiltersOpen || !dialog) return;
+    const previous = document.body.style.overflow;
+    dialog.showModal();
+    document.body.style.overflow = "hidden";
+    return () => {
+      dialog.close();
+      document.body.style.overflow = previous;
+    };
+  }, [mobileFiltersOpen]);
 
   const visibleProducts = useMemo(() => {
     const filtered = products.filter((product) => {
@@ -35,7 +47,10 @@ export function ShopBrowser({
       if (sort === "price-asc") return a.price - b.price;
       if (sort === "price-desc") return b.price - a.price;
       if (sort === "newest") {
-        return Number(Boolean(b.badge === "New")) - Number(Boolean(a.badge === "New"));
+        return (
+          Number(Boolean(b.badge === "New")) -
+          Number(Boolean(a.badge === "New"))
+        );
       }
 
       return Number(Boolean(b.featured)) - Number(Boolean(a.featured));
@@ -57,7 +72,7 @@ export function ShopBrowser({
           {flowers.map((flower) => (
             <label
               key={flower}
-              className="flex cursor-pointer items-center justify-between gap-3 text-sm text-bloom-muted"
+              className="flex min-h-11 cursor-pointer items-center justify-between gap-3 text-sm text-bloom-muted"
             >
               <span>{flower}</span>
               <input
@@ -73,10 +88,12 @@ export function ShopBrowser({
 
       <FilterSection title="Availability">
         <div className="space-y-3">
-          {(["All", "Ready to ship", "Made to order", "Out of stock"] as const).map((item) => (
+          {(
+            ["All", "Ready to ship", "Made to order", "Out of stock"] as const
+          ).map((item) => (
             <label
               key={item}
-              className="flex cursor-pointer items-center justify-between gap-3 text-sm text-bloom-muted"
+              className="flex min-h-11 cursor-pointer items-center justify-between gap-3 text-sm text-bloom-muted"
             >
               <span>{item}</span>
               <input
@@ -110,7 +127,9 @@ export function ShopBrowser({
     <div>
       <div className="mb-8 flex flex-wrap items-center justify-between gap-4 border-y border-bloom-border py-4">
         <p className="text-sm text-bloom-muted">
-          <span className="font-semibold text-bloom-plum">{visibleProducts.length}</span>{" "}
+          <span className="font-semibold text-bloom-plum">
+            {visibleProducts.length}
+          </span>{" "}
           blooms
         </p>
 
@@ -118,7 +137,7 @@ export function ShopBrowser({
           <button
             type="button"
             onClick={() => setMobileFiltersOpen(true)}
-            className="inline-flex h-10 items-center gap-2 border border-bloom-border bg-white px-3 text-xs font-semibold text-bloom-plum lg:hidden"
+            className="inline-flex h-11 items-center gap-2 border border-bloom-border bg-white px-3 text-xs font-semibold text-bloom-plum lg:hidden"
           >
             <SlidersHorizontal className="size-4" />
             Filters
@@ -129,7 +148,7 @@ export function ShopBrowser({
             <select
               value={sort}
               onChange={(event) => setSort(event.target.value as SortOption)}
-              className="h-10 appearance-none border border-bloom-border bg-white pl-3 pr-9 text-xs font-semibold text-bloom-plum outline-none transition-colors focus:border-bloom-violet"
+              className="h-11 appearance-none border border-bloom-border bg-white pl-3 pr-9 text-xs font-semibold text-bloom-plum outline-none transition-colors focus:border-bloom-violet"
             >
               <option value="featured">Featured</option>
               <option value="newest">Newest</option>
@@ -172,21 +191,24 @@ export function ShopBrowser({
       </div>
 
       {mobileFiltersOpen ? (
-        <div className="fixed inset-0 z-[70] lg:hidden">
-          <button
-            className="absolute inset-0 bg-bloom-plum/30 backdrop-blur-[2px]"
-            aria-label="Close filters"
-            onClick={() => setMobileFiltersOpen(false)}
-          />
-          <div className="absolute inset-x-0 bottom-0 max-h-[82vh] overflow-y-auto bg-background px-5 pb-8 pt-5 shadow-2xl">
+        <dialog
+          ref={filtersDialog}
+          aria-labelledby="filter-title"
+          onCancel={() => setMobileFiltersOpen(false)}
+          className="fixed inset-0 m-auto max-h-[85dvh] w-[calc(100%-2rem)] max-w-lg overflow-y-auto border border-bloom-border bg-background p-0 text-bloom-plum backdrop:bg-bloom-plum/40"
+        >
+          <div className="px-5 pb-8 pt-5">
             <div className="mb-7 flex items-center justify-between">
-              <p className="font-display text-2xl font-semibold text-bloom-plum">
+              <p
+                id="filter-title"
+                className="font-display text-2xl font-medium text-bloom-plum"
+              >
                 Filters
               </p>
               <button
                 type="button"
                 onClick={() => setMobileFiltersOpen(false)}
-                className="flex size-9 items-center justify-center border border-bloom-border bg-white text-bloom-plum"
+                className="flex size-11 items-center justify-center border border-bloom-border bg-white text-bloom-plum"
                 aria-label="Close filters"
               >
                 <X className="size-4" />
@@ -201,7 +223,7 @@ export function ShopBrowser({
               Show {visibleProducts.length} blooms
             </button>
           </div>
-        </div>
+        </dialog>
       ) : null}
     </div>
   );
@@ -216,9 +238,7 @@ function FilterSection({
 }) {
   return (
     <section className="border-b border-bloom-border pb-7">
-      <h2 className="mb-4 text-xs font-semibold tracking-[0.14em] text-bloom-plum uppercase">
-        {title}
-      </h2>
+      <h2 className="mb-4 text-sm font-medium text-bloom-plum">{title}</h2>
       {children}
     </section>
   );

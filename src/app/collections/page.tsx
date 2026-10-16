@@ -22,7 +22,7 @@ export default async function CollectionsPage() {
     <div className="min-h-screen bg-background">
       <SiteHeader />
 
-      <main>
+      <main id="main-content">
         <section className="border-b border-bloom-border bg-[#f8f2fb]">
           <div className="mx-auto max-w-[1440px] px-5 py-14 sm:px-8 lg:px-12 lg:py-20">
             <div className="flex size-10 items-center justify-center border border-bloom-violet/20 bg-white text-bloom-violet">

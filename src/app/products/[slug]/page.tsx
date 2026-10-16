@@ -78,7 +78,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
     <div className="min-h-screen bg-background">
       <SiteHeader />
 
-      <main>
+      <main id="main-content">
         <div className="mx-auto max-w-[1440px] px-5 py-5 sm:px-8 lg:px-12">
           <nav
             aria-label="Breadcrumb"

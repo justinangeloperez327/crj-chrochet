@@ -1,16 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import Link from "next/link";
-import {
-  ArrowRight,
-  Flower2,
-  Gift,
-  PackageCheck,
-  Sparkles,
-  WandSparkles,
-} from "lucide-react";
-
-import { BloomArtwork } from "@/components/store/bloom-art";
+import { ArrowRight, Flower2, Gift, PackageCheck } from "lucide-react";
 import { ProductCard } from "@/components/store/product-card";
 import { ProductMedia } from "@/components/store/product-media";
 import { SiteFooter } from "@/components/store/site-footer";
@@ -19,370 +10,251 @@ import { loadStorefrontProducts } from "@/lib/data/storefront-catalog";
 import { loadStorefrontCollections } from "@/lib/data/storefront-collections";
 import { getStoreSettings } from "@/lib/settings/store-settings";
 
-const occasions = [
-  "Birthday",
-  "Anniversary",
-  "Graduation",
-  "Thank You",
-  "Mother's Day",
-  "Just Because",
-];
-
 export default async function Home() {
-  const [storefrontProducts, storefrontCollections, settings] =
-    await Promise.all([
-      loadStorefrontProducts(),
-      loadStorefrontCollections(),
-      getStoreSettings(),
-    ]);
-  const featuredProducts = storefrontProducts
-    .filter((product) => product.featured)
-    .slice(0, 4);
-  const featuredCollections = storefrontCollections
-    .filter((collection) => collection.featured)
-    .slice(0, 3);
-  const homepageCollections =
-    featuredCollections.length > 0
-      ? featuredCollections
-      : storefrontCollections.slice(0, 3);
+  const [products, collections, settings] = await Promise.all([
+    loadStorefrontProducts(),
+    loadStorefrontCollections(),
+    getStoreSettings(),
+  ]);
+  const featured = products.filter((product) => product.featured);
+  const selection = (featured.length ? featured : products).slice(0, 4);
+  const hero =
+    products.find((product) => product.featured && product.images?.length) ??
+    products.find((product) => product.images?.length);
+  const curated = collections.filter((collection) => collection.featured);
+  const collectionSelection = (curated.length ? curated : collections).slice(
+    0,
+    3,
+  );
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-background text-foreground">
+    <div className="min-h-screen bg-background">
       <SiteHeader />
-
-      <main>
-        <section className="relative isolate overflow-hidden border-b border-bloom-border">
-          <div className="absolute inset-0 -z-20 bg-[radial-gradient(circle_at_78%_22%,rgba(124,58,237,0.10),transparent_28%),radial-gradient(circle_at_18%_82%,rgba(232,93,158,0.11),transparent_32%)]" />
-          <div className="absolute inset-0 -z-20 bloom-grid opacity-50" />
-
-          <div className="mx-auto grid min-h-[660px] max-w-[1440px] items-center gap-10 px-5 py-14 sm:px-8 lg:grid-cols-[0.92fr_1.08fr] lg:px-12 lg:py-16">
-            <div className="max-w-2xl lg:pr-4">
-              <div className="mb-7 inline-flex items-center gap-2 border border-bloom-border bg-white/70 px-3 py-2 text-[10px] font-semibold tracking-[0.17em] text-bloom-violet uppercase backdrop-blur">
-                <Flower2 className="size-3.5" />
-                Handmade crochet flowers
-              </div>
-
-              <h1 className="font-display text-[3.8rem] leading-[0.92] font-semibold tracking-[-0.055em] text-bloom-plum sm:text-[5.25rem] lg:text-[6.2rem]">
-                Blooms that
-                <span className="block text-bloom-pink">never fade.</span>
-              </h1>
-
-              <p className="mt-7 max-w-lg text-base leading-7 text-bloom-muted sm:text-lg">
-                Crochet flowers crafted stitch by stitch for gifts, celebrations,
-                and the little moments you want to keep.
+      <main id="main-content">
+        <section className="studio-hero">
+          <div className="bloom-container grid items-center gap-10 py-10 sm:py-14 lg:grid-cols-[1fr_1fr] lg:gap-16 lg:py-16">
+            <div className="max-w-xl">
+              <p className="studio-eyebrow">
+                <Flower2 className="size-4" aria-hidden="true" /> The crochet
+                flower studio
               </p>
-
-              <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:items-center">
-                <Link
-                  href="/shop"
-                  className="inline-flex h-12 items-center justify-center gap-2 bg-bloom-plum px-6 text-sm font-semibold text-white transition-colors hover:bg-[#492847]"
-                >
-                  Shop the collection
-                  <ArrowRight className="size-4" />
+              <h1 className="mt-6 font-display text-[clamp(2.75rem,6vw,5.5rem)] leading-[1.04] font-medium tracking-[-0.045em] text-bloom-plum">
+                A little flower.
+                <br />
+                <span className="text-bloom-violet">A lasting feeling.</span>
+              </h1>
+              <p className="mt-6 max-w-md text-base leading-7 text-bloom-muted sm:text-lg">
+                Handmade crochet flowers for the people and moments you want to
+                keep close.
+              </p>
+              <div className="mt-8 flex flex-wrap gap-3">
+                <Link href="/shop" className="studio-button">
+                  Find your blooms{" "}
+                  <ArrowRight className="size-4" aria-hidden="true" />
                 </Link>
                 <Link
                   href="/build-a-bouquet"
-                  className="inline-flex h-12 items-center justify-center gap-2 border border-bloom-border bg-white/65 px-6 text-sm font-semibold text-bloom-plum transition-colors hover:border-bloom-violet hover:text-bloom-violet"
+                  className="studio-button studio-button-secondary"
                 >
-                  Build a bouquet
-                  <WandSparkles className="size-4" />
+                  Create a bouquet
                 </Link>
               </div>
-
-              <div className="mt-10 grid max-w-xl grid-cols-3 divide-x divide-bloom-border border-y border-bloom-border py-4">
-                <div className="pr-4">
-                  <p className="text-sm font-semibold text-bloom-plum">Handmade</p>
-                  <p className="mt-1 text-[11px] text-bloom-muted">Stitch by stitch</p>
-                </div>
-                <div className="px-4">
-                  <p className="text-sm font-semibold text-bloom-plum">Gift ready</p>
-                  <p className="mt-1 text-[11px] text-bloom-muted">Made to delight</p>
-                </div>
-                <div className="pl-4">
-                  <p className="text-sm font-semibold text-bloom-plum">Made to keep</p>
-                  <p className="mt-1 text-[11px] text-bloom-muted">Blooms that last</p>
-                </div>
-              </div>
+              <p className="mt-6 text-sm text-bloom-muted">
+                Choose a ready-made arrangement or make it personal.
+              </p>
             </div>
-
-            <div className="relative mx-auto w-full max-w-[720px] lg:mx-0">
-              <div className="absolute -left-4 top-16 hidden h-[70%] w-20 bg-bloom-pink-soft lg:block" />
-              <div className="absolute -right-8 bottom-10 hidden size-44 rounded-full border border-bloom-violet/20 lg:block" />
-              <BloomArtwork
-                tone="rose"
-                className="aspect-[5/4] w-full border border-white/70 shadow-[0_30px_80px_rgba(71,38,66,0.15)]"
+            <div className="studio-display">
+              <div className="flex items-center justify-between gap-3 border-b border-bloom-border px-5 py-4 text-xs text-bloom-muted">
+                <span>
+                  {settings.businessName} {settings.brandByline}
+                </span>
+                <span className="text-bloom-violet">Made to keep</span>
+              </div>
+              <ProductMedia
+                image={hero?.images?.[0]}
+                alt={hero?.name ?? "Crochet bouquet illustration"}
+                tone={hero?.tone ?? "violet"}
+                priority
+                className="aspect-[5/4] w-full"
+                sizes="(max-width: 1024px) 100vw, 50vw"
               />
-              <div className="absolute -bottom-4 left-5 max-w-[230px] border border-bloom-border bg-white px-4 py-3 shadow-[0_14px_35px_rgba(80,45,72,0.12)] sm:left-8">
-                <p className="text-[10px] font-semibold tracking-[0.14em] text-bloom-pink uppercase">
-                  Made by hand
+              <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
+                <p className="text-sm text-bloom-plum">
+                  {hero?.name ?? "Flowers, one stitch at a time."}
                 </p>
-                <p className="mt-1 font-display text-lg font-semibold text-bloom-plum">
-                  Every stem has its own character.
-                </p>
+                <Link
+                  href={hero ? `/products/${hero.slug}` : "/shop"}
+                  className="inline-flex min-h-11 items-center gap-2 text-sm font-medium text-bloom-violet"
+                >
+                  {hero ? "View bouquet" : "Explore the shop"}
+                  <ArrowRight className="size-4" aria-hidden="true" />
+                </Link>
               </div>
             </div>
           </div>
         </section>
 
-        <section id="collections" className="mx-auto max-w-[1440px] px-5 py-18 sm:px-8 lg:px-12 lg:py-24">
-          <div className="mb-10 flex items-end justify-between gap-8">
+        <div className="border-y border-bloom-border bg-white">
+          <div className="bloom-container grid gap-4 py-5 sm:grid-cols-3">
+            {[
+              { icon: Flower2, label: "Handmade, stitch by stitch" },
+              { icon: Gift, label: "Thoughtful gifts that last" },
+              { icon: PackageCheck, label: "Clear stock & lead times" },
+            ].map(({ icon: Icon, label }) => (
+              <div
+                key={label}
+                className="flex items-center gap-3 text-sm text-bloom-muted"
+              >
+                <Icon
+                  className="size-4 shrink-0 text-bloom-violet"
+                  aria-hidden="true"
+                />
+                <span>{label}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <section
+          className="bloom-container studio-section"
+          aria-labelledby="studio-selection"
+        >
+          <div className="studio-section-heading">
             <div>
-              <p className="text-[11px] font-semibold tracking-[0.18em] text-bloom-pink uppercase">
-                Curated by CRJ
-              </p>
-              <h2 className="mt-3 font-display text-4xl font-semibold tracking-[-0.035em] text-bloom-plum sm:text-5xl">
-                Collections made for the moment.
+              <p className="studio-eyebrow">From the studio</p>
+              <h2 id="studio-selection" className="studio-heading mt-3">
+                Find your forever flowers.
               </h2>
             </div>
-            <Link
-              href="/collections"
-              className="hidden items-center gap-2 text-sm font-semibold text-bloom-plum transition-colors hover:text-bloom-pink sm:flex"
-            >
-              Browse collections
-              <ArrowRight className="size-4" />
+            <Link href="/shop" className="studio-text-link">
+              Shop all blooms{" "}
+              <ArrowRight className="size-4" aria-hidden="true" />
             </Link>
           </div>
+          {selection.length ? (
+            <div className="grid grid-cols-2 gap-x-4 gap-y-8 lg:grid-cols-4 lg:gap-x-6">
+              {selection.map((product) => (
+                <ProductCard key={product.id} product={product} />
+              ))}
+            </div>
+          ) : (
+            <div className="studio-empty">
+              <Flower2
+                className="mx-auto size-7 text-bloom-violet"
+                aria-hidden="true"
+              />
+              <h3 className="mt-4 text-lg font-medium">
+                The next blooms are on their way.
+              </h3>
+              <p className="mt-2 text-sm text-bloom-muted">
+                Explore a custom bouquet while we prepare the collection.
+              </p>
+              <Link href="/build-a-bouquet" className="studio-text-link mt-5">
+                Create a bouquet <ArrowRight className="size-4" />
+              </Link>
+            </div>
+          )}
+        </section>
 
-          {homepageCollections.length > 0 ? (
-            <div className="grid gap-4 md:grid-cols-3 md:gap-5">
-              {homepageCollections.map((collection) => (
-                <Link
-                  key={collection.id}
-                  href={`/collections/${collection.slug}`}
-                  className="group block"
-                >
-                  <div className="relative aspect-[4/5] overflow-hidden border border-bloom-border bg-white">
+        {collectionSelection.length ? (
+          <section
+            id="collections"
+            className="border-y border-bloom-border bg-white"
+          >
+            <div className="bloom-container studio-section">
+              <div className="studio-section-heading">
+                <div>
+                  <p className="studio-eyebrow">A place to start</p>
+                  <h2 className="studio-heading mt-3">Meet the collections.</h2>
+                </div>
+                <Link href="/collections" className="studio-text-link">
+                  All collections{" "}
+                  <ArrowRight className="size-4" aria-hidden="true" />
+                </Link>
+              </div>
+              <div className="grid gap-7 sm:grid-cols-3">
+                {collectionSelection.map((collection) => (
+                  <Link
+                    key={collection.id}
+                    href={`/collections/${collection.slug}`}
+                    className="group"
+                  >
                     <ProductMedia
                       image={collection.products[0]?.images?.[0]}
                       alt={collection.name}
                       tone={collection.tone}
                       compact
-                      className="absolute inset-0"
-                      imageClassName="transition-transform duration-500 group-hover:scale-[1.035]"
-                      sizes="(max-width: 768px) 100vw, 33vw"
+                      className="aspect-[4/3] border border-bloom-border"
+                      imageClassName="transition-transform duration-200 group-hover:scale-[1.025]"
+                      sizes="(max-width: 640px) 100vw, 33vw"
                     />
-                    <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-bloom-plum/80 via-bloom-plum/35 to-transparent p-5 pt-20 text-white">
-                      <p className="font-display text-2xl font-semibold">
+                    <div className="mt-4 flex items-center justify-between gap-3">
+                      <h3 className="font-display text-2xl text-bloom-plum">
                         {collection.name}
-                      </p>
-                      <p className="mt-2 line-clamp-2 text-xs leading-5 text-white/80">
-                        {collection.description ||
-                          `${collection.products.length} handmade bloom selections`}
-                      </p>
+                      </h3>
+                      <ArrowRight
+                        className="size-4 text-bloom-violet"
+                        aria-hidden="true"
+                      />
                     </div>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          ) : (
-            <div className="border border-bloom-border bg-white p-8 text-center text-sm text-bloom-muted">
-              New collections are being curated.
-            </div>
-          )}
-
-          <Link
-            href="/collections"
-            className="mt-6 inline-flex items-center gap-2 text-sm font-semibold text-bloom-plum sm:hidden"
-          >
-            Browse collections
-            <ArrowRight className="size-4" />
-          </Link>
-        </section>
-
-        <section id="shop" className="border-y border-bloom-border bg-white">
-          <div className="mx-auto max-w-[1440px] px-5 py-18 sm:px-8 lg:px-12 lg:py-24">
-            <div className="mb-10 flex items-end justify-between gap-8">
-              <div>
-                <p className="text-[11px] font-semibold tracking-[0.18em] text-bloom-violet uppercase">
-                  Customer favorites
-                </p>
-                <h2 className="mt-3 font-display text-4xl font-semibold tracking-[-0.035em] text-bloom-plum sm:text-5xl">
-                  Most-loved blooms
-                </h2>
+                    <p className="mt-2 text-sm leading-6 text-bloom-muted">
+                      {collection.description ||
+                        `${collection.products.length} handmade selections`}
+                    </p>
+                  </Link>
+                ))}
               </div>
-              <Link
-                href="/shop"
-                className="hidden items-center gap-2 text-sm font-semibold text-bloom-plum transition-colors hover:text-bloom-pink sm:flex"
-              >
-                Shop all
-                <ArrowRight className="size-4" />
-              </Link>
             </div>
+          </section>
+        ) : null}
 
-            <div className="grid grid-cols-2 gap-x-3 gap-y-9 md:grid-cols-4 md:gap-x-5">
-              {featuredProducts.map((product) => (
-                <ProductCard key={product.id} product={product} />
-              ))}
-            </div>
-          </div>
-        </section>
-
-        <section id="story" className="mx-auto grid max-w-[1440px] gap-10 px-5 py-18 sm:px-8 lg:grid-cols-2 lg:items-center lg:px-12 lg:py-28">
-          <div className="relative">
-            <BloomArtwork
-              tone="violet"
-              className="aspect-[5/4] w-full border border-bloom-border"
-            />
-            <div className="absolute -bottom-5 -right-2 hidden max-w-[220px] bg-bloom-plum p-5 text-white sm:block">
-              <Sparkles className="size-5 text-[#f7c6dc]" />
-              <p className="mt-3 font-display text-xl font-semibold leading-tight">
-                Small details make handmade gifts feel personal.
-              </p>
-            </div>
-          </div>
-
-          <div className="max-w-xl lg:pl-10">
-            <p className="text-[11px] font-semibold tracking-[0.18em] text-bloom-pink uppercase">
-              The CRJ story
-            </p>
-            <h2 className="mt-3 font-display text-4xl font-semibold tracking-[-0.04em] text-bloom-plum sm:text-5xl">
-              Made slowly.
-              <span className="block text-bloom-violet">Gifted meaningfully.</span>
-            </h2>
-            <p className="mt-6 text-base leading-7 text-bloom-muted">
-              Every flower is shaped, stitched, and assembled by hand. No two
-              blooms are perfectly identical—and that is part of what makes each
-              arrangement personal.
-            </p>
-            <p className="mt-4 text-base leading-7 text-bloom-muted">
-              These are flowers designed to stay: on desks, shelves, bedside
-              tables, and in the memories attached to them.
-            </p>
-            <button className="mt-8 inline-flex items-center gap-2 text-sm font-semibold text-bloom-plum transition-colors hover:text-bloom-pink">
-              Discover our handmade process
-              <ArrowRight className="size-4" />
-            </button>
-          </div>
-        </section>
-
-        <section id="bouquet" className="relative isolate overflow-hidden bg-[#eee5fb]">
-          <div className="absolute inset-0 -z-10 bloom-grid opacity-50" />
-          <div className="mx-auto grid max-w-[1440px] gap-10 px-5 py-16 sm:px-8 lg:grid-cols-[1fr_0.92fr] lg:items-center lg:px-12 lg:py-20">
-            <div className="max-w-2xl">
-              <div className="flex size-11 items-center justify-center border border-bloom-violet/20 bg-white/70 text-bloom-violet">
-                <WandSparkles className="size-5" />
-              </div>
-              <p className="mt-7 text-[11px] font-semibold tracking-[0.18em] text-bloom-violet uppercase">
-                Make it yours
-              </p>
-              <h2 className="mt-3 font-display text-4xl font-semibold tracking-[-0.045em] text-bloom-plum sm:text-6xl">
-                Build your own bouquet.
-              </h2>
-              <p className="mt-5 max-w-xl text-base leading-7 text-bloom-muted">
-                Choose your flowers, colors, number of stems, wrapping, and a
-                personal message. We will turn your combination into something
-                made just for them.
-              </p>
-              <Link
-                href="/build-a-bouquet"
-                className="mt-8 inline-flex h-12 items-center justify-center gap-2 bg-bloom-violet px-6 text-sm font-semibold text-white transition-colors hover:bg-[#6827d5]"
-              >
-                Start building
-                <ArrowRight className="size-4" />
-              </Link>
-            </div>
-
-            <div className="grid grid-cols-2 border border-bloom-violet/15 bg-white/55 backdrop-blur-sm">
-              {[
-                ["01", "Choose flowers"],
-                ["02", "Pick colors"],
-                ["03", "Select wrapping"],
-                ["04", "Add a message"],
-              ].map(([step, label]) => (
-                <div
-                  key={step}
-                  className="min-h-36 border-b border-r border-bloom-violet/15 p-5 sm:min-h-40 sm:p-6"
-                >
-                  <p className="text-xs font-semibold text-bloom-violet">{step}</p>
-                  <p className="mt-10 font-display text-xl font-semibold text-bloom-plum sm:text-2xl">
-                    {label}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        <section className="mx-auto max-w-[1440px] px-5 py-18 sm:px-8 lg:px-12 lg:py-24">
-          <div className="grid gap-12 lg:grid-cols-[0.75fr_1.25fr] lg:items-end">
+        <section id="story" className="bloom-container studio-section">
+          <div className="grid gap-8 border-l-4 border-bloom-pink bg-bloom-violet-soft p-6 sm:p-8 lg:grid-cols-[1fr_1fr] lg:gap-14 lg:p-10">
             <div>
-              <p className="text-[11px] font-semibold tracking-[0.18em] text-bloom-pink uppercase">
-                For every moment
-              </p>
-              <h2 className="mt-3 font-display text-4xl font-semibold tracking-[-0.04em] text-bloom-plum sm:text-5xl">
-                A bloom for the reason.
-                <span className="block text-bloom-pink">Or no reason at all.</span>
+              <p className="studio-eyebrow">A personal kind of gift</p>
+              <h2 className="studio-heading mt-4">
+                Made by hand.
+                <br />
+                Chosen by you.
               </h2>
-              <p className="mt-5 max-w-md text-sm leading-6 text-bloom-muted">
-                Browse by occasion when you know the moment, but not yet the
-                bouquet.
+              <p className="mt-5 max-w-lg text-base leading-7 text-bloom-muted">
+                Every stem is shaped, stitched, and assembled by hand. Choose
+                the flowers, colours, and wrapping that feel like them. We’ll
+                make the bouquet yours.
               </p>
+              <Link href="/build-a-bouquet" className="studio-button mt-7">
+                Build a bouquet{" "}
+                <ArrowRight className="size-4" aria-hidden="true" />
+              </Link>
             </div>
-
-            <div className="grid grid-cols-2 border-l border-t border-bloom-border sm:grid-cols-3">
-              {occasions.map((occasion, index) => (
-                <button
-                  key={occasion}
-                  className="group flex min-h-28 flex-col items-start justify-between border-b border-r border-bloom-border bg-white p-4 text-left transition-colors hover:bg-bloom-pink-soft/45 sm:min-h-32 sm:p-5"
+            <ol className="divide-y divide-bloom-violet/20 self-center">
+              {[
+                ["Choose your flowers", "Pick the stems and colours you love."],
+                ["Make it personal", "Select the wrapping and add a message."],
+                [
+                  "Review your bouquet",
+                  "Send your choices for a custom quote.",
+                ],
+              ].map(([title, description], index) => (
+                <li
+                  key={title}
+                  className="flex gap-4 py-5 first:pt-0 last:pb-0"
                 >
-                  <span className="text-[10px] font-semibold text-bloom-muted">
-                    0{index + 1}
+                  <span className="flex size-8 shrink-0 items-center justify-center border border-bloom-violet/30 text-sm text-bloom-violet">
+                    {index + 1}
                   </span>
-                  <span className="flex w-full items-center justify-between gap-2 text-sm font-semibold text-bloom-plum">
-                    {occasion}
-                    <ArrowRight className="size-3.5 -translate-x-1 opacity-0 transition-all group-hover:translate-x-0 group-hover:opacity-100" />
-                  </span>
-                </button>
+                  <div>
+                    <h3 className="text-base font-medium">{title}</h3>
+                    <p className="mt-1 text-sm leading-6 text-bloom-muted">
+                      {description}
+                    </p>
+                  </div>
+                </li>
               ))}
-            </div>
+            </ol>
           </div>
-        </section>
-
-        <section className="border-y border-bloom-border bg-[#fff2f8]">
-          <div className="mx-auto grid max-w-[1440px] gap-8 px-5 py-14 sm:px-8 md:grid-cols-3 lg:px-12">
-            <div className="flex gap-4">
-              <Gift className="mt-0.5 size-5 shrink-0 text-bloom-pink" />
-              <div>
-                <p className="text-sm font-semibold text-bloom-plum">Gift-ready</p>
-                <p className="mt-1 text-xs leading-5 text-bloom-muted">
-                  Thoughtful presentation from bloom to wrapping.
-                </p>
-              </div>
-            </div>
-            <div className="flex gap-4">
-              <PackageCheck className="mt-0.5 size-5 shrink-0 text-bloom-violet" />
-              <div>
-                <p className="text-sm font-semibold text-bloom-plum">Clear availability</p>
-                <p className="mt-1 text-xs leading-5 text-bloom-muted">
-                  Know what is ready now and what is made to order.
-                </p>
-              </div>
-            </div>
-            <div className="flex gap-4">
-              <Sparkles className="mt-0.5 size-5 shrink-0 text-bloom-pink" />
-              <div>
-                <p className="text-sm font-semibold text-bloom-plum">Made by hand</p>
-                <p className="mt-1 text-xs leading-5 text-bloom-muted">
-                  Each arrangement is crafted rather than mass produced.
-                </p>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section className="mx-auto max-w-[1100px] px-5 py-20 text-center sm:px-8 lg:py-28">
-          <div className="mx-auto flex size-10 items-center justify-center rounded-full bg-bloom-pink-soft text-bloom-pink">
-            <Flower2 className="size-4" />
-          </div>
-          <blockquote className="mx-auto mt-7 max-w-4xl font-display text-3xl leading-tight font-semibold tracking-[-0.035em] text-bloom-plum sm:text-5xl">
-            “A handmade flower lasts much longer than the moment it was given.”
-          </blockquote>
-          <p className="mt-6 text-xs font-semibold tracking-[0.16em] text-bloom-muted uppercase">
-            {settings.businessName} {settings.brandByline}
-          </p>
         </section>
       </main>
-
       <SiteFooter />
     </div>
   );

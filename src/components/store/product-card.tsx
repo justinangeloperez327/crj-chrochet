@@ -47,17 +47,16 @@ export function ProductCard({ product }: { product: Product }) {
       name: product.name,
       quantity: 1,
       unitPrice: defaultVariant?.price ?? product.price,
-      variant:
-        defaultVariant
-          ? `${defaultVariant.colorName} · ${defaultVariant.sizeName} · ${defaultVariant.stems} stems`
-          : product.variant,
+      variant: defaultVariant
+        ? `${defaultVariant.colorName} · ${defaultVariant.sizeName} · ${defaultVariant.stems} stems`
+        : product.variant,
     });
     setAdded(true);
     window.setTimeout(() => setAdded(false), 1400);
   }
 
   return (
-    <article className="group">
+    <article className="group min-w-0">
       <div className="relative aspect-[4/5] overflow-hidden border border-bloom-border bg-white">
         <Link
           href={`/products/${product.slug}`}
@@ -75,12 +74,6 @@ export function ProductCard({ product }: { product: Product }) {
           />
         </Link>
 
-        {product.badge ? (
-          <span className="pointer-events-none absolute left-3 top-3 border border-white/70 bg-white/90 px-2.5 py-1 text-[10px] font-semibold tracking-[0.12em] text-bloom-plum uppercase backdrop-blur">
-            {product.badge}
-          </span>
-        ) : null}
-
         <button
           type="button"
           onClick={() => toggleWishlist(product.id)}
@@ -90,7 +83,7 @@ export function ProductCard({ product }: { product: Product }) {
               : `Add ${product.name} to wishlist`
           }
           className={
-            "absolute right-3 top-3 z-10 flex size-8 items-center justify-center bg-white/90 backdrop-blur transition-colors " +
+            "absolute right-3 top-3 z-10 flex size-11 items-center justify-center bg-white/90 backdrop-blur transition-colors " +
             (wishlisted
               ? "text-bloom-pink"
               : "text-bloom-plum hover:text-bloom-pink")
@@ -101,9 +94,14 @@ export function ProductCard({ product }: { product: Product }) {
 
         <button
           type="button"
+          aria-label={
+            quickAddUnavailable
+              ? `${product.name} is out of stock`
+              : `Quick add ${product.name}`
+          }
           onClick={handleQuickAdd}
           disabled={quickAddUnavailable}
-          className="absolute inset-x-3 bottom-3 z-10 flex translate-y-2 items-center justify-center gap-2 bg-bloom-plum px-4 py-3 text-xs font-semibold tracking-[0.04em] text-white opacity-0 transition-all duration-200 group-hover:translate-y-0 group-hover:opacity-100 focus:translate-y-0 focus:opacity-100 disabled:cursor-not-allowed disabled:bg-bloom-muted/70"
+          className="absolute inset-x-3 bottom-3 z-10 flex min-h-11 items-center justify-center gap-2 bg-bloom-plum px-3 py-3 text-sm font-medium text-white transition-colors hover:bg-bloom-violet disabled:cursor-not-allowed disabled:bg-bloom-muted"
         >
           {added ? (
             <Check className="size-3.5" />
@@ -115,23 +113,31 @@ export function ProductCard({ product }: { product: Product }) {
       </div>
 
       <div className="pt-4">
-        <div className="flex items-start justify-between gap-4">
+        {product.badge ? (
+          <p className="mb-2 text-xs font-medium text-bloom-violet">
+            {product.badge}
+          </p>
+        ) : null}
+        <span role="status" className="sr-only">
+          {added ? `${product.name} added to your bag` : ""}
+        </span>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
           <div>
             <Link
               href={`/products/${product.slug}`}
-              className="text-sm font-semibold text-bloom-plum transition-colors hover:text-bloom-pink"
+              className="text-base font-medium leading-6 text-bloom-plum transition-colors hover:text-bloom-pink"
             >
               {product.name}
             </Link>
             <p className="mt-1 text-xs text-bloom-muted">{product.variant}</p>
           </div>
-          <p className="shrink-0 text-sm font-semibold text-bloom-plum">
+          <p className="shrink-0 text-sm font-medium tabular-nums text-bloom-plum">
             AED {product.price}
           </p>
         </div>
         <p
           className={
-            "mt-2 text-[11px] font-medium " +
+            "mt-2 text-xs font-medium " +
             (product.availability === "Ready to ship"
               ? "text-bloom-success"
               : product.availability === "Out of stock"

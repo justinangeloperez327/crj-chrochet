@@ -13,7 +13,6 @@ const footerGroups = [
     title: "Shop",
     links: [
       { label: "All Blooms", href: "/shop" },
-      { label: "Best Sellers", href: "/collections/best-sellers" },
       { label: "Collections", href: "/collections" },
       { label: "Build a Bouquet", href: "/build-a-bouquet" },
     ],
@@ -22,8 +21,8 @@ const footerGroups = [
     title: "Help",
     links: [
       { label: "Custom Orders", href: "/build-a-bouquet" },
-      { label: "Delivery", href: "/checkout" },
-      { label: "Contact", href: "/#story" },
+      { label: "Order help", href: "/#contact" },
+      { label: "Contact", href: "/#contact" },
     ],
   },
   {
@@ -89,13 +88,13 @@ export async function SiteFooter() {
   );
 
   return (
-    <footer className="border-t border-bloom-border bg-[#fbf3f8]">
+    <footer id="contact" className="border-t border-bloom-border bg-bloom-violet-soft">
       <div className="mx-auto grid max-w-[1440px] gap-12 px-5 py-14 sm:px-8 md:grid-cols-[1.35fr_2fr] lg:px-12 lg:py-18">
         <div className="max-w-md">
           <p className="font-display text-3xl font-semibold tracking-[-0.03em] text-bloom-plum">
             {settings.businessName}
           </p>
-          <p className="mt-1 text-xs font-semibold tracking-[0.2em] text-bloom-pink uppercase">
+          <p className="mt-1 text-sm text-bloom-pink">
             {settings.brandByline}
           </p>
           <p className="mt-5 max-w-sm text-sm leading-6 text-bloom-muted">
@@ -114,7 +113,7 @@ export async function SiteFooter() {
                       ? "noreferrer"
                       : undefined
                   }
-                  className="flex size-10 items-center justify-center border border-bloom-border bg-white text-bloom-plum transition-colors hover:border-bloom-pink hover:text-bloom-pink"
+                  className="flex size-11 items-center justify-center border border-bloom-border bg-white text-bloom-plum transition-colors hover:border-bloom-pink hover:text-bloom-pink"
                   aria-label={label}
                 >
                   <Icon className="size-4" />

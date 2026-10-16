@@ -57,7 +57,7 @@ export default async function SearchPage({ searchParams }: Props) {
     <div className="min-h-screen bg-background">
       <SiteHeader />
 
-      <main>
+      <main id="main-content">
         <section className="border-b border-bloom-border bg-[#fff7fb]">
           <div className="mx-auto max-w-[1440px] px-5 py-12 sm:px-8 lg:px-12 lg:py-16">
             <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-bloom-pink">

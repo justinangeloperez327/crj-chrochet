@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { NavigationLink } from "@/components/navigation/navigation-link";
 
 import { getStoreSettings } from "@/lib/settings/store-settings";
 import {
@@ -14,6 +15,7 @@ import {
   PackageSearch,
   Settings2,
   ShoppingBag,
+  LogOut,
   Store,
   Users,
   WandSparkles,
@@ -26,7 +28,11 @@ const navigation = [
   { label: "Inventory", href: "/admin/inventory", icon: Boxes },
   { label: "Materials", href: "/admin/materials", icon: FlaskConical },
   { label: "Bouquet Options", href: "/admin/bouquet-options", icon: Flower2 },
-  { label: "Custom Bouquets", href: "/admin/custom-bouquets", icon: WandSparkles },
+  {
+    label: "Custom Bouquets",
+    href: "/admin/custom-bouquets",
+    icon: WandSparkles,
+  },
   { label: "Production", href: "/admin/production", icon: Hammer },
   { label: "Orders", href: "/admin/orders", icon: PackageSearch },
   { label: "Customers", href: "/admin/customers", icon: Users },
@@ -36,27 +42,23 @@ const navigation = [
   { label: "Settings", href: "/admin/settings", icon: Settings2 },
 ];
 
-export async function AdminShell({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export async function AdminShell({ children }: { children: React.ReactNode }) {
   const settings = await getStoreSettings();
 
   return (
-    <div className="min-h-screen bg-[#f7f4f6] text-bloom-plum">
-      <div className="border-b border-bloom-border bg-bloom-plum px-5 py-2 text-center text-[10px] font-semibold tracking-[0.16em] text-white/80 uppercase">
+    <div className="admin-workspace min-h-screen bg-background text-bloom-plum">
+      <div className="border-b border-bloom-border bg-bloom-plum px-5 py-2 text-center text-xs font-medium text-white">
         {settings.businessName} · Operations
       </div>
 
       <div className="mx-auto grid min-h-[calc(100vh-2rem)] max-w-[1600px] lg:grid-cols-[230px_1fr]">
-        <aside className="hidden border-r border-bloom-border bg-white lg:flex lg:flex-col">
+        <aside className="sticky top-0 hidden max-h-dvh self-start overflow-y-auto border-r border-bloom-border bg-white lg:flex lg:min-h-dvh lg:flex-col">
           <div className="border-b border-bloom-border px-6 py-6">
             <Link href="/admin" className="block">
-              <p className="font-display text-xl font-semibold tracking-[-0.03em]">
+              <p className="font-display text-xl font-medium tracking-[-0.03em]">
                 {settings.businessName}
               </p>
-              <p className="mt-1 text-[10px] font-semibold tracking-[0.16em] text-bloom-pink uppercase">
+              <p className="mt-1 text-xs text-bloom-pink">
                 {settings.brandByline} · Admin
               </p>
             </Link>
@@ -64,21 +66,30 @@ export async function AdminShell({
 
           <nav className="flex-1 px-3 py-4" aria-label="Admin navigation">
             {navigation.map(({ label, href, icon: Icon }) => (
-              <Link
+              <NavigationLink
                 key={href}
                 href={href}
-                className="flex items-center gap-3 px-3 py-3 text-sm font-medium text-bloom-muted transition-colors hover:bg-bloom-pink-soft/45 hover:text-bloom-plum"
+                className="flex items-center gap-3 min-h-11 px-3 py-2.5 text-sm font-medium text-bloom-muted transition-colors hover:bg-bloom-pink-soft/45 hover:text-bloom-plum"
               >
                 <Icon className="size-4" />
                 {label}
-              </Link>
+              </NavigationLink>
             ))}
           </nav>
 
           <div className="border-t border-bloom-border p-4">
+            <form method="post" action="/api/auth/logout">
+              <button
+                className="flex min-h-11 w-full items-center gap-3 px-3 text-sm text-bloom-muted hover:bg-bloom-violet-soft"
+                type="submit"
+              >
+                <LogOut className="size-4" />
+                Sign out
+              </button>
+            </form>
             <Link
               href="/"
-              className="flex items-center gap-3 px-3 py-3 text-sm font-medium text-bloom-muted hover:text-bloom-plum"
+              className="flex items-center gap-3 min-h-11 px-3 py-2.5 text-sm font-medium text-bloom-muted hover:text-bloom-plum"
             >
               <Store className="size-4" />
               View storefront
@@ -102,20 +113,43 @@ export async function AdminShell({
                 <ShoppingBag className="size-4" />
               </Link>
             </div>
-            <nav className="flex overflow-x-auto border-t border-bloom-border px-3 py-2">
-              {navigation.map(({ label, href }) => (
-                <Link
-                  key={href}
-                  href={href}
-                  className="shrink-0 px-3 py-2 text-xs font-semibold text-bloom-muted"
+            <details className="border-t border-bloom-border px-5 py-2">
+              <summary className="flex min-h-11 cursor-pointer items-center text-sm font-medium text-bloom-violet">
+                Manage store
+              </summary>
+              <nav
+                aria-label="Mobile admin navigation"
+                className="grid grid-cols-2 gap-1 pb-3"
+              >
+                {navigation.map(({ label, href, icon: Icon }) => (
+                  <NavigationLink
+                    key={href}
+                    href={href}
+                    className="flex min-h-12 items-center gap-2 px-2 text-sm text-bloom-muted hover:bg-bloom-violet-soft"
+                  >
+                    <Icon className="size-4 shrink-0" />
+                    {label}
+                  </NavigationLink>
+                ))}
+              </nav>
+              <form method="post" action="/api/auth/logout">
+                <button
+                  type="submit"
+                  className="flex min-h-11 items-center gap-2 pb-2 text-sm text-bloom-muted"
                 >
-                  {label}
-                </Link>
-              ))}
-            </nav>
+                  <LogOut className="size-4" />
+                  Sign out
+                </button>
+              </form>
+            </details>
           </header>
 
-          <main className="px-5 py-6 sm:px-8 lg:px-10 lg:py-8">{children}</main>
+          <main
+            id="main-content"
+            className="px-5 py-6 sm:px-8 lg:px-10 lg:py-8"
+          >
+            {children}
+          </main>
         </div>
       </div>
     </div>

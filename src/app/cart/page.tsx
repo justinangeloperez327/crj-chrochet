@@ -16,7 +16,7 @@ export default async function CartPage() {
   return (
     <div className="min-h-screen bg-background">
       <SiteHeader />
-      <main>
+      <main id="main-content">
         <CartPageClient
           giftOrdersEnabled={settings.giftOrdersEnabled}
           giftMessageMaxLength={settings.giftMessageMaxLength}
