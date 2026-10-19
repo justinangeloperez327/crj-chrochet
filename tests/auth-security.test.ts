@@ -34,6 +34,26 @@ test("malformed password hashes fail closed without expensive invalid parameters
 });
 
 
+test("accepts same-origin Vercel deployment aliases with a configured production origin", () => {
+  const previous = process.env.APP_URL;
+  process.env.APP_URL = "https://handmade-blooms.vercel.app";
+  try {
+    const alias = "https://handmade-blooms-example-team.vercel.app/api/auth/login";
+    assert.equal(sameOriginForm(new Request(alias, { method: "POST", headers: {
+      origin: "https://handmade-blooms-example-team.vercel.app",
+    } })), true);
+    assert.equal(sameOriginForm(new Request(alias, { method: "POST", headers: {
+      origin: "https://attacker.example",
+    } })), false);
+    assert.equal(sameOriginForm(new Request(alias, { method: "POST", headers: {
+      origin: "null",
+    } })), false);
+    assert.equal(sameOriginForm(new Request(alias, { method: "POST" })), false);
+  } finally {
+    if (previous === undefined) delete process.env.APP_URL; else process.env.APP_URL = previous;
+  }
+});
+
 test("origin checks use configured public URL behind a proxy", () => {
   const previous = process.env.APP_URL;
   process.env.APP_URL = "https://store.example";

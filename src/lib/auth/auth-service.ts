@@ -24,7 +24,14 @@ export async function registerCustomer(input: {
   const email = input.email.trim().toLowerCase();
   validateRegistration(name, email, input.password);
 
-  assertAuthEmailConfigured();
+  try {
+    assertAuthEmailConfigured();
+  } catch {
+    throw new AuthError(
+      "Registration is temporarily unavailable because account verification email is not configured.",
+      "EMAIL_UNAVAILABLE",
+    );
+  }
   const passwordHash = await hashPassword(input.password);
   const existingUser = await db.user.findUnique({ where: { email } });
 

@@ -7,9 +7,27 @@ export function publicRequestOrigin(request: Request) {
 
 export function sameOriginForm(request: Request) {
   const origin = request.headers.get("origin");
-  if (!origin) return false;
-  try { return new URL(origin).origin === publicRequestOrigin(request); }
-  catch { return false; }
+  if (!origin || origin === "null") return false;
+  try {
+    const submitted = new URL(origin);
+    // An Origin header must contain just an HTTP(S) origin, never a URL path.
+    if (!["https:", "http:"].includes(submitted.protocol) ||
+        submitted.username || submitted.password ||
+        submitted.pathname !== "/" || submitted.search || submitted.hash) return false;
+
+    const incoming = new URL(request.url);
+    const configured = publicRequestOrigin(request);
+    // Behind proxies, Next.js may see an internal URL. Keep the configured
+    // public origin, but also recognize the actual HTTPS deployment/alias host.
+    // This allows same-origin forms on Vercel aliases without trusting arbitrary
+    // X-Forwarded-Host or Referer headers.
+    const incomingAllowed = incoming.protocol === "https:" ||
+      (process.env.NODE_ENV !== "production" && incoming.hostname === "localhost");
+    return submitted.origin === configured ||
+      (incomingAllowed && submitted.origin === incoming.origin);
+  } catch {
+    return false;
+  }
 }
 
 export async function enforceAuthRate(request: Request, action: string, email: string, limit: number) {
