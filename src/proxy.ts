@@ -12,7 +12,7 @@ export function proxy(request: NextRequest) {
   if (authPages.has(request.nextUrl.pathname) && request.method === "GET") {
     try {
       const canonical = new URL(process.env.APP_URL ?? "");
-      if (canonical.protocol === "https:" && canonical.origin !== request.nextUrl.origin) {
+      if (canonical.protocol === "https:" && canonical.origin !== new URL(request.url).origin) {
         const target = new URL(request.nextUrl.pathname + request.nextUrl.search, canonical.origin);
         return NextResponse.redirect(target, 307);
       }
