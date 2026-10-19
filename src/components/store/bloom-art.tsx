@@ -9,11 +9,8 @@ type BloomArtworkProps = {
 };
 
 const toneClasses: Record<BloomTone, string> = {
-  rose: "from-[#ffe8f1] via-[#f9cfe0] to-[#f2a8c8]",
-  violet: "from-[#f2eaff] via-[#dfcffb] to-[#c8aaf5]",
-  peach: "from-[#fff0e9] via-[#ffd9cc] to-[#f7b7a7]",
-  cream: "from-[#fffdf5] via-[#f8efd8] to-[#ead8b5]",
-  sun: "from-[#fff9dc] via-[#fde9a8] to-[#f6d56d]",
+  rose: "bg-[#f6dce8]", violet: "bg-[#e6dcf3]", peach: "bg-[#f9e2d9]",
+  cream: "bg-[#f3eddc]", sun: "bg-[#f7edbc]",
 };
 
 const petalClasses: Record<BloomTone, string> = {
@@ -32,15 +29,12 @@ export function BloomArtwork({
   return (
     <div
       className={cn(
-        "relative isolate overflow-hidden bg-gradient-to-br",
+        "relative isolate overflow-hidden",
         toneClasses[tone],
         className,
       )}
       aria-hidden="true"
     >
-      <div className="absolute inset-x-0 bottom-0 h-2/5 bg-[linear-gradient(to_top,rgba(73,46,63,0.10),transparent)]" />
-      <div className="absolute -left-12 top-8 size-32 rounded-full bg-white/35 blur-2xl" />
-      <div className="absolute -right-8 bottom-4 size-36 rounded-full bg-white/30 blur-3xl" />
 
       <div
         className={cn(

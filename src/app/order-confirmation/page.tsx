@@ -55,7 +55,7 @@ export default async function OrderConfirmationPage({
         </div>
       </header>
 
-      <main className="mx-auto max-w-[900px] px-5 py-12 sm:px-8 lg:py-16">
+      <main id="main-content" className="mx-auto max-w-[900px] px-5 py-12 sm:px-8 lg:py-16">
         <div className="text-center">
           <div
             className={

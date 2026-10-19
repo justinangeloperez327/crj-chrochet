@@ -31,7 +31,7 @@ export default async function BuildABouquetPage() {
     <div className="min-h-screen bg-background">
       <SiteHeader />
 
-      <main>
+      <main id="main-content">
         <section className="border-b border-bloom-border bg-[#eee5fb]">
           <div className="mx-auto max-w-[1280px] px-5 py-12 sm:px-8 lg:py-16">
             <Link

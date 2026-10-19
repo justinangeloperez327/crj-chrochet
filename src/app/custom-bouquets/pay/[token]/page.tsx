@@ -53,7 +53,7 @@ export default async function CustomBouquetPaymentPage({
     <div className="min-h-screen bg-background">
       <SiteHeader />
 
-      <main>
+      <main id="main-content">
         <section className="border-b border-bloom-border bg-[#eee5fb]">
           <div className="mx-auto max-w-[1180px] px-5 py-10 sm:px-8 lg:py-14">
             <Link
