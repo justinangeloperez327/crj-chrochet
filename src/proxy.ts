@@ -9,16 +9,20 @@ export function proxy(request: NextRequest) {
   // instead of signing in on a temporary Vercel deployment alias and losing
   // the cookie when the browser is redirected to the production domain.
   const authPages = new Set(["/login", "/register", "/forgot-password", "/reset-password", "/verify-email"]);
-  if (authPages.has(request.nextUrl.pathname) && request.method === "GET") {
-    try {
-      const canonical = new URL(process.env.APP_URL ?? "");
-      if (canonical.protocol === "https:" && canonical.origin !== new URL(request.url).origin) {
-        const target = new URL(request.nextUrl.pathname + request.nextUrl.search, canonical.origin);
-        return NextResponse.redirect(target, 307);
+  if (authPages.has(request.nextUrl.pathname)) {
+    if (request.method === "GET") {
+      try {
+        const canonical = new URL(process.env.APP_URL ?? "");
+        if (canonical.protocol === "https:" && canonical.origin !== new URL(request.url).origin) {
+          const target = new URL(request.nextUrl.pathname + request.nextUrl.search, canonical.origin);
+          return NextResponse.redirect(target, 307);
+        }
+      } catch {
+        // Missing or invalid APP_URL: preserve the current host.
       }
-    } catch {
-      // Missing or invalid APP_URL: preserve the current host.
     }
+    // Public auth pages must not fall through to the protected-area redirect.
+    return NextResponse.next();
   }
 
   if (request.cookies.get(SESSION_COOKIE)?.value) {
