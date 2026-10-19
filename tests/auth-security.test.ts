@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { NextRequest } from "next/server";
+import { proxy } from "../src/proxy";
 import { hashAuthToken } from "../src/lib/auth/email-tokens";
 import { sameOriginForm } from "../src/lib/auth/security";
 import { hashPassword, verifyPassword } from "../src/lib/auth/password";
@@ -33,6 +35,22 @@ test("malformed password hashes fail closed without expensive invalid parameters
   }
 });
 
+
+test("auth pages on deployment aliases redirect to the canonical host", () => {
+  const previous = process.env.APP_URL;
+  process.env.APP_URL = "https://handmade-blooms.vercel.app";
+  try {
+    const response = proxy(new NextRequest("https://handmade-blooms-alias.vercel.app/login?next=%2Fadmin"));
+    assert.equal(response.status, 307);
+    assert.equal(response.headers.get("location"), "https://handmade-blooms.vercel.app/login?next=%2Fadmin");
+
+    const canonical = proxy(new NextRequest("https://handmade-blooms.vercel.app/register"));
+    assert.equal(canonical.status, 200);
+    assert.equal(canonical.headers.get("location"), null);
+  } finally {
+    if (previous === undefined) delete process.env.APP_URL; else process.env.APP_URL = previous;
+  }
+});
 
 test("accepts same-origin Vercel deployment aliases with a configured production origin", () => {
   const previous = process.env.APP_URL;
