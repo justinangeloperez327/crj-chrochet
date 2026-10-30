@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { randomBytes, randomUUID, createHash } from "node:crypto";
 import { Pool } from "pg";
-import { hashPassword } from "../../src/lib/auth/password";
+import { hashPassword, verifyPassword } from "../../src/lib/auth/password";
 
 const email = "e2e-customer@example.invalid";
 const password = "e2e isolated customer password";
@@ -216,6 +216,43 @@ test("Vercel environment admin is created on first correct login", async ({
   expect(saved.emailVerifiedAt).toBeTruthy();
   await page.reload();
   await expect(page).toHaveURL(/\/admin$/);
+});
+
+test("existing administrator can recover login with the Vercel admin password", async ({ page }) => {
+  // The webServer's admin env vars deliberately differ from the CI seed admin.
+  const adminEmail = "e2e-bootstrap-admin@example.invalid";
+  const adminPassword = "e2e unique bootstrap admin password";
+  const oldPassword = "previous saved admin password";
+  await db.query(
+    `INSERT INTO "User" (id,email,"passwordHash",name,role,"emailVerifiedAt","updatedAt")
+     VALUES ($1,$2,$3,$4,'ADMIN',NOW(),NOW())
+     ON CONFLICT(email) DO UPDATE SET "passwordHash"=EXCLUDED."passwordHash",
+       "role"='ADMIN', "emailVerifiedAt"=NOW()`,
+    [randomUUID(), adminEmail, await hashPassword(oldPassword), "Previous Admin"],
+  );
+  const admin = (await db.query<{ id: string }>('SELECT id FROM "User" WHERE email=$1', [adminEmail])).rows[0];
+  await db.query(
+    'INSERT INTO "AuthSession" (id,"userId","tokenHash","expiresAt") VALUES ($1,$2,$3,$4)',
+    [randomUUID(), admin.id, createHash("sha256").update(randomUUID()).digest("hex"), new Date(Date.now() + 600000)],
+  );
+
+  await page.goto("/login");
+  await page.getByLabel("Email address").fill(adminEmail);
+  await page.getByLabel("Password", { exact: true }).fill(adminPassword);
+  await page.getByRole("button", { name: "Sign in", exact: true }).click();
+  await expect(page).toHaveURL(/\/admin$/);
+
+  const saved = (await db.query<{ role: string; passwordHash: string }>(
+    'SELECT role,"passwordHash" FROM "User" WHERE email=$1', [adminEmail],
+  )).rows[0];
+  expect(saved.role).toBe("ADMIN");
+  expect(await verifyPassword(adminPassword, saved.passwordHash)).toBe(true);
+  expect(await verifyPassword(oldPassword, saved.passwordHash)).toBe(false);
+  const sessions = (await db.query<{ count: number }>(
+    'SELECT COUNT(*)::int AS count FROM "AuthSession" WHERE "userId"=$1',
+    [admin.id],
+  )).rows[0].count;
+  expect(sessions).toBe(1); // New login session only; previous sessions were revoked.
 });
 
 test("mobile menu, filters, and product quick add work without hover", async ({

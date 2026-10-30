@@ -1,9 +1,10 @@
 import { createHash, timingSafeEqual } from "node:crypto";
-import { requireDb } from "@/lib/db";
-import { hashPassword } from "@/lib/auth/password";
+import { requireDb, runTransaction } from "@/lib/db";
+import { hashPassword, verifyPassword } from "@/lib/auth/password";
 
-// Called only by the rate-limited, same-origin password login flow.
-// Environment credentials create a missing account; they never update one.
+// Only called from the rate-limited, same-origin login flow.
+// The environment credentials can create a missing ADMIN or recover the
+// password of that exact ADMIN. They never promote an existing customer.
 export async function bootstrapAdminOnLogin(emailInput: string, password: string) {
   const email = process.env.ADMIN_EMAIL?.trim().toLowerCase();
   const configuredPassword = process.env.ADMIN_PASSWORD;
@@ -13,16 +14,43 @@ export async function bootstrapAdminOnLogin(emailInput: string, password: string
       configuredPassword === "change-this-to-a-long-random-password" || name.length > 120 ||
       emailInput.trim().toLowerCase() !== email || password.length > 200) return null;
 
-  // Compare fixed-size digests without retaining a plaintext credential in DB.
+  // Both digests are constant size, so password comparison never leaks
+  // differences in the supplied secret through an early character mismatch.
   const digest = (value: string) => createHash("sha256").update(value).digest();
   if (!timingSafeEqual(digest(password), digest(configuredPassword))) return null;
 
   const db = requireDb();
-  if (await db.user.findUnique({ where: { email } })) return null;
+  const existing = await db.user.findUnique({ where: { email } });
+  if (existing) {
+    if (existing.role !== "ADMIN") return null;
+    if (await verifyPassword(configuredPassword, existing.passwordHash)) return existing;
+
+    // Recover a previously created administrator after ADMIN_PASSWORD changes.
+    // This is restricted to the exact configured ADMIN_EMAIL and ADMIN role;
+    // concurrent recoveries are serialized and never revoke a fresh session
+    // unless they actually rotate the password.
+    const passwordHash = await hashPassword(configuredPassword);
+    await runTransaction(async (tx) => {
+      const result = await tx.user.updateMany({
+        where: { id: existing.id, email, role: "ADMIN", passwordHash: existing.passwordHash },
+        data: { passwordHash },
+      });
+      if (result.count !== 1) return;
+      await tx.authSession.deleteMany({ where: { userId: existing.id } });
+      await tx.authToken.deleteMany({ where: { userId: existing.id } });
+    });
+    const current = await db.user.findUnique({ where: { email } });
+    return current?.role === "ADMIN" && await verifyPassword(configuredPassword, current.passwordHash)
+      ? current : null;
+  }
+
   const passwordHash = await hashPassword(configuredPassword);
-  // The unique email and ON CONFLICT DO NOTHING handle concurrent first logins
-  // and a customer registration racing bootstrap without promoting that user.
-  await db.user.createMany({ data: [{ email, name, passwordHash, role: "ADMIN", emailVerifiedAt: new Date() }], skipDuplicates: true });
+  // A concurrent customer registration cannot be promoted into ADMIN.
+  await db.user.createMany({
+    data: [{ email, name, passwordHash, role: "ADMIN", emailVerifiedAt: new Date() }],
+    skipDuplicates: true,
+  });
   const user = await db.user.findUnique({ where: { email } });
-  return user?.role === "ADMIN" ? user : null;
+  return user?.role === "ADMIN" && await verifyPassword(configuredPassword, user.passwordHash)
+    ? user : null;
 }

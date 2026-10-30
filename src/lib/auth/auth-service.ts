@@ -53,7 +53,11 @@ export async function loginWithPassword(emailInput: string, password: string) {
 
   if (password.length > 200) throw new AuthError("Invalid email or password.", "INVALID_CREDENTIALS");
   let user = await db.user.findUnique({ where: { email } });
-  if (!user) user = await bootstrapAdminOnLogin(email, password) ?? await db.user.findUnique({ where: { email } });
+  // Allow the configured administrator to sign in after the environment
+  // password is rotated, while never granting admin rights to a customer.
+  if (!user || user.role === "ADMIN") {
+    user = await bootstrapAdminOnLogin(email, password) ?? user;
+  }
   if (!user) {
     await verifyPassword(password, "scrypt$16384$8$1$" + "0".repeat(32) + "$" + "0".repeat(128));
     throw new AuthError("Invalid email or password.", "INVALID_CREDENTIALS");
