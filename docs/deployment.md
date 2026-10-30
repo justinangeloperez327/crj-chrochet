@@ -60,13 +60,22 @@ to the project's Production environment variables. Manually deploy, open
 creates a verified ADMIN account and opens `/admin`. No local command is needed.
 The production database must already have the required schema.
 
-Incorrect credentials never create an account. Later deployments never reset
-passwords, names, roles or verification for an existing account. If the email
-already belongs to a customer, it remains a customer; choose a new email for
-bootstrap or use an explicit administrative promotion. After initial setup,
-remove `ADMIN_PASSWORD` from Vercel and manually redeploy; the saved account
-continues to work. Changing the environment password does not rotate a saved
-admin password—use the normal password reset flow.
+Incorrect credentials never create an account. If `ADMIN_EMAIL` already belongs
+to a customer, the customer is **never** promoted automatically; choose a distinct
+admin address or use a reviewed, explicit administrative promotion.
+
+If an existing administrator has forgotten their password, update `ADMIN_PASSWORD`
+in Vercel Production to a unique password of 12–200 characters, then **manually
+deploy the newest main commit**. The administrator can sign in using that new
+password at `/login`. A successful matching admin login rotates the saved
+password and revokes older sessions and recovery tokens without changing
+the role, name or verification. Other administrators and all customers are
+unaffected. If the old password still works, sign-in continues normally.
+
+Because configured administrator credentials can be used for recovery while they
+remain present, **remove `ADMIN_PASSWORD` after successful setup/recovery**,
+then manually redeploy. The hashed database password continues to work. There
+is no automatic production deploy or database migration.
 
 For an explicit CLI create/reset operation without importing demo products:
 

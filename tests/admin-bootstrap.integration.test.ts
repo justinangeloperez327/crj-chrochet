@@ -44,19 +44,36 @@ test("incorrect or invalid environment credentials never create an account", asy
   } finally { await f.db.user.deleteMany({ where: { email: f.email } }); f.restore(); }
 });
 
-test("existing admin passwords and sessions survive environment changes", async () => {
+test("existing admin credentials recover only on correct environment login, revoking old sessions", async () => {
   const f = configure();
   try {
     await bootstrapAdminOnLogin(f.email, password);
     const before = await f.db.user.findUniqueOrThrow({ where: { email: f.email } });
     await f.db.authSession.create({ data: { userId: before.id, tokenHash: randomUUID(), expiresAt: new Date(Date.now() + 600000) } });
-    process.env.ADMIN_PASSWORD = "replacement-environment-password"; process.env.ADMIN_NAME = "Changed name";
-    assert.equal(await bootstrapAdminOnLogin(f.email, process.env.ADMIN_PASSWORD), null);
-    const after = await f.db.user.findUniqueOrThrow({ where: { email: f.email } });
-    assert.equal(after.passwordHash, before.passwordHash); assert.equal(after.name, before.name);
+    await f.db.authToken.create({ data: {
+      userId: before.id, type: "PASSWORD_RESET", tokenHash: randomUUID(),
+      expiresAt: new Date(Date.now() + 600000),
+    } });
+    const rotatedPassword = "replacement-environment-password";
+    process.env.ADMIN_PASSWORD = rotatedPassword;
+    process.env.ADMIN_NAME = "Changed name";
+    assert.equal(await bootstrapAdminOnLogin(f.email, "incorrect-secret"), null);
+    assert.equal((await f.db.user.findUniqueOrThrow({ where: { email: f.email } })).passwordHash, before.passwordHash);
     assert.equal(await f.db.authSession.count({ where: { userId: before.id } }), 1);
+
+    const recovered = await bootstrapAdminOnLogin(f.email, rotatedPassword);
+    assert.equal(recovered?.role, "ADMIN");
+    const after = await f.db.user.findUniqueOrThrow({ where: { email: f.email } });
+    assert.equal(after.id, before.id);
+    assert.equal(after.name, before.name);
+    assert.equal(await verifyPassword(rotatedPassword, after.passwordHash), true);
+    assert.equal(await verifyPassword(password, after.passwordHash), false);
+    assert.equal(await f.db.authSession.count({ where: { userId: before.id } }), 0);
+    assert.equal(await f.db.authToken.count({ where: { userId: before.id } }), 0);
+
     delete process.env.ADMIN_PASSWORD;
-    assert.equal(await verifyPassword(password, after.passwordHash), true);
+    assert.equal(await bootstrapAdminOnLogin(f.email, rotatedPassword), null);
+    assert.equal(await verifyPassword(rotatedPassword, after.passwordHash), true);
   } finally { await f.db.user.deleteMany({ where: { email: f.email } }); f.restore(); }
 });
 

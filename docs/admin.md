@@ -1,6 +1,6 @@
 # Administration
 
-Sign in at `/login` with an administrator account to open `/admin`. Create or rotate that account with `ADMIN_EMAIL`, `ADMIN_PASSWORD` and `ADMIN_NAME` using `npm run db:bootstrap-admin`. The command revokes existing admin sessions and recovery tokens. It does not create demo products.
+Sign in at `/login` with an administrator account to open `/admin`. Create or rotate that account with `ADMIN_EMAIL`, `ADMIN_PASSWORD` and `ADMIN_NAME` using `npm run db:bootstrap-admin`. The command revokes existing admin sessions and recovery tokens. Alternatively, a matching administrator can recover their password on the regular `/login` page using the current Vercel Production `ADMIN_EMAIL` and `ADMIN_PASSWORD` values after a manual deployment; the password rotation revokes previous sessions. Remove `ADMIN_PASSWORD` from Vercel and redeploy after successful setup. It does not create demo products.
 
 The dashboard links to products, inventory, materials, production, orders, customers, collections, discounts, reviews, reports and store settings. Each page and mutation checks the administrator role on the server.
 
