@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { AuthError, registerCustomer } from "@/lib/auth/auth-service";
-import { enforceAuthRate, sameOriginForm , publicRequestOrigin } from "@/lib/auth/security";
+import { AuthRateLimitError, enforceAuthRate, sameOriginForm, publicRequestOrigin } from "@/lib/auth/security";
 
 export const runtime = "nodejs";
 
@@ -18,7 +18,7 @@ export async function POST(request: Request) {
     return NextResponse.redirect(new URL("/verify-email?sent=1", publicRequestOrigin(request)), 303);
   } catch (error) {
     const message =
-      error instanceof AuthError
+      error instanceof AuthError || error instanceof AuthRateLimitError
         ? error.message
         : error instanceof Error && error.message.includes("DATABASE_URL")
           ? "Account registration is not configured yet."

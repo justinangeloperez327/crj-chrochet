@@ -175,6 +175,28 @@ Do not run `db:seed` against production; a local shell lacking `NODE_ENV` can
 still point at production. Seeding additionally requires `ALLOW_DEMO_SEED=true`;
 leave that unset in production and review `DATABASE_URL` before any seed command.
 
+## Troubleshooting administrator sign-in
+
+An admin signs in at `/login` using `ADMIN_EMAIL` and `ADMIN_PASSWORD`.
+The environment credentials can create a missing ADMIN or recover the password
+of the existing matching ADMIN; they cannot promote a customer.
+
+If login fails, visit `/api/health` on the **canonical production domain**.
+The `authentication` field is independent of payment and mail settings:
+- `ready`: login tables and columns are available; check entered credentials,
+  rate limiting, and Vercel function logs
+- `database_not_configured`: set Production `DATABASE_URL`
+- `database_unavailable`: check the connection string, networking, provider
+  availability and connection pooling
+- `migrations_required`: the production database is missing authentication
+  schema; review a backup and apply the versioned Prisma migrations to the
+  **correct production database** before trying again
+
+A message about "15 minutes" is account/IP rate limiting, not a password error.
+Do not disable throttling or bypass administrator authorization to restore access.
+The health endpoint never returns credentials or customer records. All production
+deployments and migrations remain manual.
+
 ## Monitoring and rollback
 
 Monitor `/api/health` (200 means required configuration and database connection

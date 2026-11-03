@@ -29,8 +29,6 @@ jobs:
         run: |
           test -s prisma/migrations/0_init/migration.sql
           test -f prisma/migrations/migration_lock.toml
-      - name: Audit runtime dependencies
-        run: npm audit --omit=dev --audit-level=high
       - name: Lint
         run: npm run lint
       - name: Type-check
@@ -39,6 +37,8 @@ jobs:
         run: npm run test
       - name: Build
         run: npm run build
+      - name: Audit runtime dependencies
+        run: npm audit --omit=dev --audit-level=high
 
   database-integration:
     runs-on: ubuntu-latest

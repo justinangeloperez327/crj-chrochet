@@ -30,6 +30,13 @@ export function sameOriginForm(request: Request) {
   }
 }
 
+export class AuthRateLimitError extends Error {
+  constructor() {
+    super("Too many attempts. Please try again in 15 minutes.");
+    this.name = "AuthRateLimitError";
+  }
+}
+
 export async function enforceAuthRate(request: Request, action: string, email: string, limit: number) {
   const db = requireDb();
   const addr = request.headers.get("x-vercel-forwarded-for")?.split(",")[0]?.trim()
@@ -48,7 +55,7 @@ export async function enforceAuthRate(request: Request, action: string, email: s
         "windowStart" = CASE WHEN "AuthThrottle"."windowStart" < ${cutoff} THEN ${now} ELSE "AuthThrottle"."windowStart" END
       RETURNING "attempts"
     `;
-    if (rows[0].attempts > limit) throw new Error("Too many attempts. Try again in 15 minutes.");
+    if (rows[0].attempts > limit) throw new AuthRateLimitError();
   }
 }
 
