@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 
 import { AuthError, loginWithPassword } from "@/lib/auth/auth-service";
-import { enforceAuthRate, sameOriginForm, safeAccountRedirect , publicRequestOrigin } from "@/lib/auth/security";
+import { AuthRateLimitError, enforceAuthRate, sameOriginForm, safeAccountRedirect, publicRequestOrigin } from "@/lib/auth/security";
+import { authSignInMessage, logAuthFailure } from "@/lib/auth/diagnostics";
 
 export const runtime = "nodejs";
 
@@ -20,12 +21,13 @@ export async function POST(request: Request) {
 
     return NextResponse.redirect(new URL(destination, publicRequestOrigin(request)), 303);
   } catch (error) {
+    if (!(error instanceof AuthError) && !(error instanceof AuthRateLimitError)) {
+      logAuthFailure(error);
+    }
     const message =
-      error instanceof AuthError
+      error instanceof AuthError || error instanceof AuthRateLimitError
         ? error.message
-        : error instanceof Error && error.message.includes("DATABASE_URL")
-          ? "Account sign-in is not configured yet."
-          : "Unable to sign in.";
+        : authSignInMessage(error);
 
     const url = new URL("/login", publicRequestOrigin(request));
     url.searchParams.set("error", message);

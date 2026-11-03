@@ -5,6 +5,7 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
 import { hashAuthToken, resetPasswordWithToken, verifyEmailToken } from "../src/lib/auth/email-tokens";
 import { hashPassword, verifyPassword } from "../src/lib/auth/password";
+import { getAuthReadiness } from "../src/lib/auth/diagnostics";
 
 test("migrations, guest claim, one-time verification, and reset", async () => {
   const connectionString = process.env.DATABASE_URL;
@@ -57,4 +58,9 @@ test("migrations, guest claim, one-time verification, and reset", async () => {
     if (customerId) await db.customer.delete({ where: { id: customerId } }).catch(() => undefined);
     await db.$disconnect();
   }
+});
+
+test("database migration exposes the necessary authentication tables", async () => {
+  assert.ok(process.env.DATABASE_URL?.includes("crj_test"), "Use disposable CI database only");
+  assert.equal(await getAuthReadiness(), "ready");
 });

@@ -2,6 +2,7 @@ import { ziinaTestMode } from "@/lib/payments/ziina-client";
 import { checkoutProvider } from "@/lib/payments/provider";
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
+import { getAuthReadiness } from "@/lib/auth/diagnostics";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -30,9 +31,10 @@ export async function GET() {
       database = false;
     }
   }
-  const ready = Boolean(database && missing === 0);
+  const authentication = await getAuthReadiness();
+  const ready = Boolean(database && missing === 0 && authentication === "ready");
   return NextResponse.json(
-    { ok: ready, database: database ? "connected" : "unavailable", configuration: missing ? "incomplete" : "configured" },
+    { ok: ready, database: database ? "connected" : "unavailable", authentication, configuration: missing ? "incomplete" : "configured" },
     { status: ready ? 200 : 503, headers: { "Cache-Control": "no-store" } },
   );
 }

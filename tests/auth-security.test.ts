@@ -3,7 +3,8 @@ import { test } from "node:test";
 import { NextRequest } from "next/server";
 import { proxy } from "../src/proxy";
 import { hashAuthToken } from "../src/lib/auth/email-tokens";
-import { sameOriginForm } from "../src/lib/auth/security";
+import { sameOriginForm, AuthRateLimitError } from "../src/lib/auth/security";
+import { authSignInMessage, classifyAuthFailure } from "../src/lib/auth/diagnostics";
 import { hashPassword, verifyPassword } from "../src/lib/auth/password";
 
 test("hashed tokens never preserve the raw secret", () => {
@@ -81,4 +82,18 @@ test("origin checks use configured public URL behind a proxy", () => {
   } finally {
     if (previous === undefined) delete process.env.APP_URL; else process.env.APP_URL = previous;
   }
+});
+
+test("rate-limit failures produce an actionable message", () => {
+  assert.match(new AuthRateLimitError().message, /15 minutes/);
+});
+
+test("login failure classifier distinguishes schema, connectivity and configuration", () => {
+  assert.equal(classifyAuthFailure({ code: "P2010", meta: { code: "42P01" } }), "migrations_required");
+  assert.equal(classifyAuthFailure({ code: "P2022" }), "migrations_required");
+  assert.equal(classifyAuthFailure({ code: "P1001" }), "database_unavailable");
+  assert.equal(classifyAuthFailure(new Error("DATABASE_URL is not configured.")), "database_not_configured");
+  assert.equal(classifyAuthFailure(new Error("wrong password")), "unknown");
+  assert.match(authSignInMessage({ code: "P2010", meta: { code: "42P01" } }), /migrations/);
+  assert.doesNotMatch(authSignInMessage(new Error("secret-password-value")), /secret-password/);
 });
