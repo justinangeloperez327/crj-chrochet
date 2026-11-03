@@ -8,9 +8,19 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  let provider: "STRIPE" | "ZIINA";
-  try { provider = checkoutProvider(); if (provider === "ZIINA") ziinaTestMode(); } catch { return NextResponse.json({ ok: false, configuration: "invalid" }, { status: 503 }); }
-  const providerKeys = provider === "ZIINA" ? ["ZIINA_ACCESS_TOKEN", "ZIINA_ACCOUNT_ID", "ZIINA_WEBHOOK_SECRET"] : ["STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET"];
+  let provider: "STRIPE" | "ZIINA" | null = null;
+  try {
+    provider = checkoutProvider();
+    if (provider === "ZIINA") ziinaTestMode();
+  } catch {
+    // Auth readiness must remain visible even when payment is misconfigured.
+    provider = null;
+  }
+  const providerKeys = provider === "ZIINA"
+    ? ["ZIINA_ACCESS_TOKEN", "ZIINA_ACCOUNT_ID", "ZIINA_WEBHOOK_SECRET"]
+    : provider === "STRIPE"
+      ? ["STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET"]
+      : [];
   const missing = [
     ...providerKeys.map((name) => [name, process.env[name]]),
     ["DATABASE_URL", process.env.DATABASE_URL],
@@ -32,9 +42,9 @@ export async function GET() {
     }
   }
   const authentication = await getAuthReadiness();
-  const ready = Boolean(database && missing === 0 && authentication === "ready");
+  const ready = Boolean(provider && database && missing === 0 && authentication === "ready");
   return NextResponse.json(
-    { ok: ready, database: database ? "connected" : "unavailable", authentication, configuration: missing ? "incomplete" : "configured" },
+    { ok: ready, database: database ? "connected" : "unavailable", authentication, configuration: !provider ? "invalid" : missing ? "incomplete" : "configured" },
     { status: ready ? 200 : 503, headers: { "Cache-Control": "no-store" } },
   );
 }
